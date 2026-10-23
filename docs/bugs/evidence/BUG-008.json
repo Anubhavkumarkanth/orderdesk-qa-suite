@@ -1,0 +1,7 @@
+{
+  "bug": "BUG-008",
+  "step": "UI: BND-B x1 + BND-D x1, coupon FLAT50, click Place order; read 'Total'",
+  "clean_build_total_shown": "Rs 290.00",
+  "defective_build_total_shown": "Rs 340.00",
+  "api_total_in_both_builds": "Rs 290.00 (29000 paise)"
+}

@@ -1,0 +1,19 @@
+{
+  "bug": "BUG-006",
+  "clean_build": {
+    "step": "POST /api/orders with customer_email 'user@nodot'",
+    "http_status": 422,
+    "body": {
+      "detail": "invalid customer_email"
+    }
+  },
+  "defective_build": {
+    "step": "POST /api/orders with customer_email 'user@nodot'",
+    "http_status": 201,
+    "status": "PLACED",
+    "subtotal_paise": 12000,
+    "discount_paise": 0,
+    "shipping_paise": 4000,
+    "total_paise": 16000
+  }
+}

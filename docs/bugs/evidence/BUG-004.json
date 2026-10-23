@@ -1,0 +1,11 @@
+{
+  "bug": "BUG-004",
+  "clean_build": {
+    "step": "place NB-A5 x 3, then cancel; read stock of NB-A5 (started at 50)",
+    "stock_after_cancel": 50
+  },
+  "defective_build": {
+    "step": "place NB-A5 x 3, then cancel; read stock of NB-A5 (started at 50)",
+    "stock_after_cancel": 47
+  }
+}

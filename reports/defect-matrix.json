@@ -1,0 +1,61 @@
+{
+  "clean": {
+    "failed": [],
+    "total": 86
+  },
+  "BUG-001": {
+    "failed": [
+      "api/test_pricing_boundaries::test_tc_qty_001_quantity_boundaries[11-422]"
+    ],
+    "total": 86
+  },
+  "BUG-002": {
+    "failed": [
+      "api/test_pricing_boundaries::test_tc_prc_001_save10_minimum_subtotal_boundary[items1-201]",
+      "api/test_pricing_boundaries::test_tc_prc_002_save10_at_exact_minimum_gives_free_shipping_and_correct_total",
+      "api/test_pricing_boundaries::test_tc_prc_008_total_identity_holds_for_every_coupon_case"
+    ],
+    "total": 86
+  },
+  "BUG-003": {
+    "failed": [
+      "api/test_pricing_boundaries::test_tc_prc_002_save10_at_exact_minimum_gives_free_shipping_and_correct_total"
+    ],
+    "total": 86
+  },
+  "BUG-004": {
+    "failed": [
+      "api/test_order_lifecycle::test_tc_lif_004_cancel_restores_stock[PLACED]",
+      "api/test_order_lifecycle::test_tc_lif_004_cancel_restores_stock[PAID]",
+      "api/test_order_lifecycle::test_tc_lif_005_cancel_restores_every_line_of_a_multi_line_order",
+      "db/test_db_integrity::test_tc_dat_003_stock_is_conserved",
+      "ui/test_checkout_ui::test_tc_ui_006_cancelling_in_the_browser_restores_the_stock_shown"
+    ],
+    "total": 86
+  },
+  "BUG-005": {
+    "failed": [
+      "api/test_order_lifecycle::test_tc_lif_003_cancel_is_only_allowed_before_shipping[SHIPPED]",
+      "ui/test_checkout_ui::test_tc_ui_007_cancel_after_shipping_is_blocked_with_a_message"
+    ],
+    "total": 86
+  },
+  "BUG-006": {
+    "failed": [
+      "api/test_orders_api::test_tc_val_001_invalid_email_is_rejected[user@nodot]"
+    ],
+    "total": 86
+  },
+  "BUG-007": {
+    "failed": [
+      "api/test_pricing_boundaries::test_tc_prc_003_percentage_discount_rounds_half_up[items1-5001]"
+    ],
+    "total": 86
+  },
+  "BUG-008": {
+    "failed": [
+      "ui/test_checkout_ui::test_tc_ui_003_coupon_discount_is_reflected_in_the_total"
+    ],
+    "total": 86
+  }
+}

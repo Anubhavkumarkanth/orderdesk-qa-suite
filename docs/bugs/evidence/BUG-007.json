@@ -1,0 +1,21 @@
+{
+  "bug": "BUG-007",
+  "clean_build": {
+    "step": "POST /api/orders BND-B + BND-E (Rs 500.05) coupon SAVE10",
+    "http_status": 201,
+    "status": "PLACED",
+    "subtotal_paise": 50005,
+    "discount_paise": 5001,
+    "shipping_paise": 0,
+    "total_paise": 45004
+  },
+  "defective_build": {
+    "step": "POST /api/orders BND-B + BND-E (Rs 500.05) coupon SAVE10",
+    "http_status": 201,
+    "status": "PLACED",
+    "subtotal_paise": 50005,
+    "discount_paise": 5000,
+    "shipping_paise": 0,
+    "total_paise": 45005
+  }
+}

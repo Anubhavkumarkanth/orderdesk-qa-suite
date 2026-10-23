@@ -1,0 +1,13 @@
+{
+  "bug": "BUG-005",
+  "clean_build": {
+    "step": "place, pay, ship, then POST /cancel",
+    "http_status": 409,
+    "status": null
+  },
+  "defective_build": {
+    "step": "place, pay, ship, then POST /cancel",
+    "http_status": 200,
+    "status": "CANCELLED"
+  }
+}

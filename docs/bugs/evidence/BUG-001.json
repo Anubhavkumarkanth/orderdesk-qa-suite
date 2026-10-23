@@ -1,0 +1,19 @@
+{
+  "bug": "BUG-001",
+  "clean_build": {
+    "step": "POST /api/orders NB-A5 x 11",
+    "http_status": 422,
+    "body": {
+      "detail": "quantity for NB-A5 must be 1 to 10"
+    }
+  },
+  "defective_build": {
+    "step": "POST /api/orders NB-A5 x 11",
+    "http_status": 201,
+    "status": "PLACED",
+    "subtotal_paise": 132000,
+    "discount_paise": 0,
+    "shipping_paise": 0,
+    "total_paise": 132000
+  }
+}

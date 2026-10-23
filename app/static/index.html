@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Orderdesk</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #1f2937; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+  input { padding: 6px; font-size: 14px; }
+  input[type=number] { width: 70px; }
+  button { padding: 8px 14px; font-size: 14px; cursor: pointer; }
+  .row { margin: 12px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .error { color: #b91c1c; min-height: 1.4em; }
+  #order-summary { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px 16px; margin-top: 16px; }
+  #order-summary[hidden] { display: none; }
+</style>
+</head>
+<body>
+<h1>Orderdesk</h1>
+<table aria-label="Products">
+  <thead><tr><th>Product</th><th>Price</th><th>In stock</th><th>Qty</th></tr></thead>
+  <tbody id="products"></tbody>
+</table>
+<div class="row">
+  <label>Email <input id="email" data-testid="email-input" type="text" autocomplete="off"></label>
+  <label>Coupon <input id="coupon" data-testid="coupon-input" type="text" autocomplete="off"></label>
+  <button id="place" data-testid="place-order">Place order</button>
+</div>
+<div class="error" id="error" data-testid="error-message" role="alert"></div>
+
+<section id="order-summary" data-testid="order-summary" hidden>
+  <h2>Order <span data-testid="order-id"></span> <small data-testid="order-status"></small></h2>
+  <div>Subtotal: <span data-testid="summary-subtotal"></span></div>
+  <div>Discount: <span data-testid="summary-discount"></span></div>
+  <div>Shipping: <span data-testid="summary-shipping"></span></div>
+  <div><strong>Total: <span data-testid="summary-total"></span></strong></div>
+  <div class="row">
+    <button data-testid="pay-order">Mark paid</button>
+    <button data-testid="cancel-order">Cancel order</button>
+  </div>
+</section>
+
+<script>
+const inr = (paise) => "Rs " + (paise / 100).toFixed(2);
+const $ = (sel) => document.querySelector(sel);
+const t = (id) => document.querySelector(`[data-testid="${id}"]`);
+let current = null, uiDefects = [];
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Request failed");
+  return body;
+}
+
+async function loadProducts() {
+  const products = await api("/api/products");
+  $("#products").innerHTML = products.map(p => `
+    <tr data-testid="product-${p.sku}">
+      <td>${p.name}</td><td>${inr(p.price_paise)}</td>
+      <td data-testid="stock-${p.sku}">${p.stock}</td>
+      <td><input type="number" min="0" value="0" data-testid="qty-${p.sku}" data-sku="${p.sku}"></td>
+    </tr>`).join("");
+}
+
+function render(order) {
+  current = order;
+  const total = uiDefects.includes("BUG-008") ? order.subtotal_paise + order.shipping_paise : order.total_paise;
+  $("#order-summary").hidden = false;
+  t("order-id").textContent = "#" + order.id;
+  t("order-status").textContent = order.status;
+  t("summary-subtotal").textContent = inr(order.subtotal_paise);
+  t("summary-discount").textContent = "-" + inr(order.discount_paise);
+  t("summary-shipping").textContent = inr(order.shipping_paise);
+  t("summary-total").textContent = inr(total);
+}
+
+async function act(action) {
+  $("#error").textContent = "";
+  try { render(await api(`/api/orders/${current.id}/${action}`, { method: "POST" })); await loadProducts(); }
+  catch (e) { $("#error").textContent = e.message; }
+}
+
+$("#place").addEventListener("click", async () => {
+  $("#error").textContent = "";
+  const items = [...document.querySelectorAll("input[data-sku]")]
+    .map(i => ({ sku: i.dataset.sku, quantity: Number(i.value) })).filter(i => i.quantity !== 0);
+  const coupon = $("#coupon").value.trim();
+  try {
+    const order = await api("/api/orders", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer_email: $("#email").value.trim(), items, coupon: coupon || null }),
+    });
+    render(order); await loadProducts();
+  } catch (e) { $("#error").textContent = e.message; }
+});
+t("pay-order").addEventListener("click", () => act("pay"));
+t("cancel-order").addEventListener("click", () => act("cancel"));
+
+(async () => { uiDefects = (await api("/api/config")).ui_defects; await loadProducts(); })();
+</script>
+</body>
+</html>

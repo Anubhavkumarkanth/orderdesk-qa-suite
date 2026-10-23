@@ -1,0 +1,19 @@
+{
+  "bug": "BUG-002",
+  "clean_build": {
+    "step": "POST /api/orders BND-B x 2 (Rs 500.00) coupon SAVE10",
+    "http_status": 201,
+    "status": "PLACED",
+    "subtotal_paise": 50000,
+    "discount_paise": 5000,
+    "shipping_paise": 0,
+    "total_paise": 45000
+  },
+  "defective_build": {
+    "step": "POST /api/orders BND-B x 2 (Rs 500.00) coupon SAVE10",
+    "http_status": 422,
+    "body": {
+      "detail": "coupon minimum not met"
+    }
+  }
+}
