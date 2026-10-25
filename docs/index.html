@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Anubhav Kumar's Orderdesk QA project: test cases, API and database checks, browser automation, and reproducible reports.">
+<title>Orderdesk QA Suite | Anubhav Kumar</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#111a2d;--text:#edf2ff;--muted:#b7c2d9;--line:#2a3853;--accent:#8db7ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:900px;margin:0 auto;padding:48px 24px 72px}a{color:var(--accent)}a:focus-visible{outline:3px solid #fff;outline-offset:3px}
+nav{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:32px}.eyebrow{color:var(--accent);font-weight:650;letter-spacing:.04em}
+h1{font-size:clamp(2rem,6vw,3.5rem);line-height:1.1;margin:.4rem 0 1rem}h2{margin-top:2rem;font-size:1.35rem}
+p,li{color:var(--muted)}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin:18px 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}.stat{padding:16px;border:1px solid var(--line);border-radius:12px}.stat strong{display:block;font-size:1.6rem;color:var(--text)}
+ul{padding-left:1.3rem}.links{display:flex;gap:16px;flex-wrap:wrap}
+footer{margin-top:40px;border-top:1px solid var(--line);padding-top:20px;color:var(--muted);font-size:.92rem}
+</style>
+</head>
+<body>
+<main>
+<nav aria-label="Project links"><a href="https://anubhavkumarkanth.github.io/retail-cancellation-leakage/">Retail dashboard</a><a href="https://sip-friction-analyzer.onrender.com">SIP simulator</a><a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite">Source code</a></nav>
+<p class="eyebrow">QA PROJECT · PYTHON · PYTEST · PLAYWRIGHT</p>
+<h1>Orderdesk QA Suite</h1>
+<p>I built a small order service and tested it at the API, database, and browser levels. The project shows how I turn requirements into checks and clear bug reports.</p>
+<div class="stats" aria-label="Project results"><div class="stat"><strong>86</strong>automated test runs</div><div class="stat"><strong>44</strong>test cases</div><div class="stat"><strong>8</strong>deliberately seeded defects detected</div></div>
+<section class="panel"><h2>What I checked</h2><ul>
+<li>API inputs and boundary values, including quantity limits, coupon thresholds, and invalid order changes.</li>
+<li>Database rules for order totals, stock, and linked records.</li>
+<li>Checkout steps in a real browser using Playwright.</li>
+<li>CI that passes on the clean app and fails when a seeded defect escapes detection.</li>
+</ul><p>The clean run passed all 86 checks. Each seeded defect has a reproducible report with steps, expected and actual results, evidence, and the test that guards it.</p></section>
+<section class="panel"><h2>What the result means</h2>
+<p>I wrote the sample app, requirements, defects, and tests. Catching all eight seeded defects shows that the suite detects those fault types. It does not show that I found bugs in software written by someone else.</p>
+<p>This page is a static project write-up. The sample API and checkout run locally; no order or customer data is collected here.</p></section>
+<section><h2>Read the work</h2><p class="links">
+<a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite">Source code and setup</a>
+<a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/docs/test-plan.md">Test plan</a>
+<a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/docs/traceability.md">Test coverage map</a>
+<a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/reports/defect-matrix.md">Defect results</a>
+<a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/actions/workflows/ci.yml">CI checks</a>
+</p></section>
+<footer>Built by Anubhav Kumar · <a href="https://www.linkedin.com/in/anubhavkumar021">LinkedIn</a></footer>
+</main>
+</body>
+</html>
+
