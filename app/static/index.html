@@ -13,18 +13,20 @@
   button { padding: 8px 14px; font-size: 14px; cursor: pointer; }
   .row { margin: 12px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .error { color: #b91c1c; min-height: 1.4em; }
+  .notice { padding: 12px; border-radius: 8px; background: #eff6ff; }
   #order-summary { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px 16px; margin-top: 16px; }
   #order-summary[hidden] { display: none; }
 </style>
 </head>
 <body>
 <h1>Orderdesk</h1>
+<p id="demo-notice" class="notice" hidden>Interactive portfolio workspace: orders use sample data and reset when the service restarts. Do not enter personal information.</p>
 <table aria-label="Products">
   <thead><tr><th>Product</th><th>Price</th><th>In stock</th><th>Qty</th></tr></thead>
   <tbody id="products"></tbody>
 </table>
 <div class="row">
-  <label>Email <input id="email" data-testid="email-input" type="text" autocomplete="off"></label>
+  <label id="email-label">Email <input id="email" data-testid="email-input" type="text" autocomplete="off"></label>
   <label>Coupon <input id="coupon" data-testid="coupon-input" type="text" autocomplete="off"></label>
   <button id="place" data-testid="place-order">Place order</button>
 </div>
@@ -99,7 +101,17 @@ $("#place").addEventListener("click", async () => {
 t("pay-order").addEventListener("click", () => act("pay"));
 t("cancel-order").addEventListener("click", () => act("cancel"));
 
-(async () => { uiDefects = (await api("/api/config")).ui_defects; await loadProducts(); })();
+(async () => {
+  const config = await api("/api/config");
+  uiDefects = config.ui_defects;
+  if (config.public_demo) {
+    $("#email-label").hidden = true;
+    $("#email").value = "guest@example.test";
+    $("#demo-notice").hidden = false;
+  }
+  await loadProducts();
+})();
 </script>
 </body>
 </html>
+
