@@ -23,6 +23,7 @@ Orderdesk is a small order service written for this project, so the specificatio
 | REQ-LIF-003 | Transitions on a missing order are 404; an unknown action is 404. |
 | REQ-DAT-001 | Stored totals are internally consistent (`total = subtotal - discount + shipping`; `subtotal = sum(quantity x unit price)`). |
 | REQ-DAT-002 | Stock is conserved: `stock + units in non-cancelled orders = initial stock`; stock is never negative; foreign keys are consistent. |
+| REQ-DAT-003 | The full `customer_email` is never stored or returned. Orders keep only a masked copy: the first character of the name and of the domain, then `***`, then the last part of the domain (`anubhav@gmail.com` becomes `a***@g***.com`). |
 | REQ-UI-001 | The checkout page shows the catalogue with live stock, places orders, and shows the order summary exactly as the API returns it (subtotal, discount, shipping, total). |
 | REQ-UI-002 | Validation errors from the API are shown to the user; the summary stays hidden. |
 | REQ-UI-003 | The page can mark an order paid and cancel it, and the stock column refreshes after each action. |

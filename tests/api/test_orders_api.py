@@ -51,10 +51,18 @@ def test_tc_val_001_invalid_email_is_rejected(api, email):
     assert api.get("/api/orders").json() == []
 
 
-@pytest.mark.parametrize("email", ["a@b.co", "first.last+tag@example.com", "UPPER@EXAMPLE.COM"])
-def test_tc_val_002_valid_email_is_accepted(api, email):
-    """TC-VAL-002: valid e-mail forms are accepted."""
-    assert api.place([("NB-A5", 1)], email=email).status_code == 201
+@pytest.mark.parametrize("email, masked", [
+    ("a@b.co", "a***@b***.co"),
+    ("first.last+tag@example.com", "f***@e***.com"),
+    ("UPPER@EXAMPLE.COM", "U***@E***.COM"),
+])
+def test_tc_val_002_valid_email_is_accepted(api, db, email, masked):
+    """TC-VAL-002: valid e-mail forms are accepted, and only a masked copy is stored and returned."""
+    r = api.place([("NB-A5", 1)], email=email)
+    assert r.status_code == 201
+    assert r.json()["customer_email"] == masked
+    assert api.get(f"/api/orders/{r.json()['id']}").json()["customer_email"] == masked
+    assert db.execute("SELECT COUNT(*) FROM orders WHERE customer_email = ?", (email,)).fetchone()[0] == 0
 
 
 def test_tc_val_003_empty_order_is_rejected(api):

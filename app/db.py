@@ -1,4 +1,4 @@
-"""SQLite storage. One connection guarded by a lock keeps the demo app simple."""
+"""SQLite storage. One connection guarded by a lock keeps the app simple."""
 import os
 import sqlite3
 import threading

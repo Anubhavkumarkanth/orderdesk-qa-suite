@@ -4,8 +4,8 @@
 
 A small order-processing application (FastAPI + SQLite + one HTML checkout page) and the test suite I wrote for it: **86 automated tests across API, database and browser layers**, a written test plan, requirement-to-test traceability, and reproducible bug reports.
 
-## Live interactive app
-Try the [Orderdesk interactive workspace](https://orderdesk-qa-suite-live.onrender.com). It uses a fixed sample customer and synthetic products, never stores a visitor's email, and resets sample orders when the free host restarts. Please do not enter personal information. This is a portfolio sandbox, not a production store.
+## Live app
+[Open Orderdesk](https://orderdesk-qa-suite-live.onrender.com): the same API and checkout page the tests run against, with real e-mail validation. It keeps only a masked copy of the e-mail you type (`anubhav@gmail.com` is stored as `a***@g***.com`), so no full address is ever stored or shown. Orders reset when the free host restarts, and the first visit after a quiet spell can take up to a minute.
 
 The application contains **8 defects that I seeded deliberately** and can switch on one at a time. That lets the repository show the whole defect cycle with real evidence: reproduce, report, fix, and prove a test now guards it.
 
