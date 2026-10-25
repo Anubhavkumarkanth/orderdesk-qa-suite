@@ -4,6 +4,9 @@
 
 A small order-processing application (FastAPI + SQLite + one HTML checkout page) and the test suite I wrote for it: **86 automated tests across API, database and browser layers**, a written test plan, requirement-to-test traceability, and reproducible bug reports.
 
+## Live interactive app
+Try the [Orderdesk interactive workspace](https://orderdesk-qa-suite-live.onrender.com). It uses a fixed sample customer and synthetic products, never stores a visitor's email, and resets sample orders when the free host restarts. Please do not enter personal information. This is a portfolio sandbox, not a production store.
+
 The application contains **8 defects that I seeded deliberately** and can switch on one at a time. That lets the repository show the whole defect cycle with real evidence: reproduce, report, fix, and prove a test now guards it.
 
 > Honest framing: I wrote the application, the requirements, the defects and the tests. The suite catching all 8 defects shows its sensitivity to those kinds of faults. It does not show that I found bugs in software I did not write, and nothing here claims that.
@@ -81,3 +84,4 @@ reports/    results-clean-build.txt  defect-matrix.md/json  screenshots/
 ```
 
 MIT licensed.
+
