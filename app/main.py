@@ -12,8 +12,6 @@ from . import db, defects, pricing
 
 app = FastAPI(title="Orderdesk (application under test)", version="1.0")
 STATIC = Path(__file__).parent / "static"
-PUBLIC_DEMO = os.environ.get("ORDERDESK_PUBLIC_DEMO") == "1"
-DEMO_EMAIL = "guest@example.test"
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 EMAIL_LOOSE = re.compile(r"^[^@\s]+@[^@\s]+$")  # used only when BUG-006 is active
@@ -25,6 +23,15 @@ TRANSITIONS = {  # action -> (allowed current statuses, new status)
     "deliver": (("SHIPPED",), "DELIVERED"),
     "cancel": (("PLACED", "PAID"), "CANCELLED"),
 }
+
+
+def mask_email(email: str) -> str:
+    """Keep the first character of the name and of the domain, e.g. anubhav@gmail.com -> a***@g***.com (REQ-DAT-003)."""
+    local, _, domain = email.partition("@")
+    name, dot, tld = domain.rpartition(".")
+    if not dot:  # no dot in the domain (only reachable when BUG-006 is active)
+        name = domain
+    return f"{local[:1]}***@{name[:1]}***{dot}{tld}"
 
 
 class Line(BaseModel):
@@ -47,7 +54,7 @@ def _order_json(order_id: int) -> dict:
         "SELECT sku, quantity, unit_price_paise FROM order_items WHERE order_id = ? ORDER BY id", (order_id,)
     ).fetchall()
     return {
-        "id": row["id"], "customer_email": DEMO_EMAIL if PUBLIC_DEMO else row["customer_email"], "status": row["status"], "coupon": row["coupon"],
+        "id": row["id"], "customer_email": row["customer_email"], "status": row["status"], "coupon": row["coupon"],
         "subtotal_paise": row["subtotal_paise"], "discount_paise": row["discount_paise"],
         "shipping_paise": row["shipping_paise"], "total_paise": row["total_paise"], "created_at": row["created_at"],
         "items": [dict(i) for i in items],
@@ -61,7 +68,7 @@ def health():
 
 @app.get("/api/config")
 def config():
-    return {"ui_defects": sorted(d for d in defects.active() if d == "BUG-008"), "public_demo": PUBLIC_DEMO}
+    return {"ui_defects": sorted(d for d in defects.active() if d == "BUG-008")}
 
 
 @app.get("/api/products")
@@ -72,9 +79,8 @@ def products():
 
 @app.post("/api/orders", status_code=201)
 def create_order(body: NewOrder):
-    customer_email = DEMO_EMAIL if PUBLIC_DEMO else body.customer_email
-    email_ok = (EMAIL_LOOSE if defects.on("BUG-006") else EMAIL).match(customer_email) and len(customer_email) <= 254
-    if not PUBLIC_DEMO and not email_ok:
+    email_ok = (EMAIL_LOOSE if defects.on("BUG-006") else EMAIL).match(body.customer_email) and len(body.customer_email) <= 254
+    if not email_ok:
         raise HTTPException(422, "invalid customer_email")
     if not 1 <= len(body.items) <= MAX_LINES:
         raise HTTPException(422, f"order must have 1 to {MAX_LINES} lines")
@@ -106,7 +112,7 @@ def create_order(body: NewOrder):
             cur = con.execute(
                 "INSERT INTO orders (customer_email, status, coupon, subtotal_paise, discount_paise, shipping_paise, total_paise, created_at) "
                 "VALUES (?, 'PLACED', ?, ?, ?, ?, ?, ?)",
-                (customer_email, body.coupon, totals.subtotal, totals.discount, totals.shipping, totals.total,
+                (mask_email(body.customer_email), body.coupon, totals.subtotal, totals.discount, totals.shipping, totals.total,
                  datetime.now(timezone.utc).isoformat(timespec="seconds")),
             )
             order_id = cur.lastrowid
