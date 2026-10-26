@@ -2,10 +2,10 @@
 
 [![ci](https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/actions/workflows/ci.yml/badge.svg)](https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/actions/workflows/ci.yml)
 
-A small order-processing application (FastAPI + SQLite + one HTML checkout page) and the test suite I wrote for it: **86 automated tests across API, database and browser layers**, a written test plan, requirement-to-test traceability, and reproducible bug reports.
+A small order-processing application (FastAPI + SQLite + one HTML checkout page) and the test suite I wrote for it: **124 automated tests across API, database and browser layers**, a written test plan, requirement-to-test traceability, and reproducible bug reports. It includes a **UPI payment failure lab**: a pretend UPI provider that fails payments with NPCI's error codes at the real decline rates measured by my [UPI Pulse](https://anubhavkumarkanth.github.io/upi-pulse/) tracker.
 
 ## Live app
-[Open Orderdesk](https://orderdesk-qa-suite-live.onrender.com): the same API and checkout page the tests run against, with real e-mail validation. It keeps only a masked copy of the e-mail you type (`anubhav@gmail.com` is stored as `a***@g***.com`), so no full address is ever stored or shown. Orders reset when the free host restarts, and the first visit after a quiet spell can take up to a minute.
+[Open Orderdesk](https://orderdesk-qa-suite-live.onrender.com): the same API and checkout page the tests run against, with real e-mail validation. It keeps only a masked copy of the e-mail you type (`anubhav@gmail.com` is stored as `a***@g***.com`), so no full address is ever stored or shown. After placing an order you can pay with a pretend UPI ID: `success@sandbox`, `pending@sandbox`, or a failure code such as `z9@sandbox` (not enough money) or `zm@sandbox` (wrong PIN). Any other UPI ID succeeds or fails as often as real UPI payments do. No money moves, and the UPI ID is never stored. Orders reset when the free host restarts, and the first visit after a quiet spell can take up to a minute.
 
 The application contains **8 defects that I seeded deliberately** and can switch on one at a time. That lets the repository show the whole defect cycle with real evidence: reproduce, report, fix, and prove a test now guards it.
 
@@ -25,8 +25,8 @@ cd orderdesk-qa-suite
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m playwright install chromium
-python -m pytest -v                                    # clean build: expect 86 passed
-python scripts/defect_matrix.py                        # runs the suite once per seeded defect (about 2 minutes)
+python -m pytest -v                                    # clean build: expect 124 passed
+python scripts/defect_matrix.py                        # runs the suite once per seeded defect (about 5 minutes)
 ```
 
 Run the app yourself: `uvicorn app.main:app` then open http://127.0.0.1:8000 (interactive API docs at `/docs`). Switch a defect on with `ORDERDESK_DEFECTS=BUG-004` (or `all`); unset it for the correct build. `ORDERDESK_TEST_MODE=1` enables the reset endpoint the tests use.
@@ -34,18 +34,28 @@ Run the app yourself: `uvicorn app.main:app` then open http://127.0.0.1:8000 (in
 ## What is tested
 | Layer | Tests | Techniques | Folder |
 |-------|------:|------------|--------|
-| API | 72 | Boundary values (quantity, coupon minimums, free-shipping threshold), equivalence partitions (e-mail), state-transition table (12 invalid transitions), rounding edge case, all-or-nothing stock handling, negative cases | `tests/api/` |
-| Database | 7 | SQL invariants after a mixed scenario: totals identity, subtotal = sum of items, stock conservation, no negative stock, FK consistency | `tests/db/` |
-| Browser | 7 | Catalogue and stock display, order summary figures, coupon total, validation message, cancel flow, blocked cancel after shipping; screenshot saved on failure | `tests/ui/` |
+| API | 105 | Boundary values (quantity, coupon minimums, free-shipping threshold), equivalence partitions (e-mail), state-transition table (12 invalid transitions), rounding edge case, all-or-nothing stock handling, negative cases; UPI payment states, repeated and forged callbacks, refunds after cancel, retry rules, reconciliation, 500 buyers for the last 5 units | `tests/api/` |
+| Database | 8 | SQL invariants after a mixed scenario: totals identity, subtotal = sum of items, stock conservation, no negative stock, FK consistency, no double charge | `tests/db/` |
+| Browser | 9 | Catalogue and stock display, order summary figures, coupon total, validation message, cancel flow, blocked cancel after shipping, UPI decline shown with its reason, phone on 3G with a double tap on Pay; screenshot saved on failure | `tests/ui/` |
+| Simulator | 2 | The pretend provider's codes match NPCI's list and its decline rates match UPI Pulse | `tests/unit/` |
 
-(86 tests come from 44 test cases once parametrized; see [`docs/traceability.md`](docs/traceability.md).)
+(124 tests come from 62 test cases once parametrized; see [`docs/traceability.md`](docs/traceability.md).)
 
-Documents: [requirements](docs/requirements.md) (the test oracle), [test plan](docs/test-plan.md), [test cases](docs/test-cases.md), [traceability](docs/traceability.md).
+Documents: [requirements](docs/requirements.md) (the test oracle), [test plan](docs/test-plan.md), [test cases](docs/test-cases.md), [traceability](docs/traceability.md), [UPI failure lab](docs/upi-failure-lab.md).
+
+## UPI payment failure lab
+The lab adds UPI payment to the checkout through a pretend provider (`app/upi_provider.py`):
+
+- **Real codes:** wrong PIN (ZM), not enough money (Z9), risk limit (U16), request expired (U69), debit failed at the bank (U30) and debit timeout (U67), each checked against NPCI's *Error and Response Codes* v2.9.
+- **Real rates:** over the last 12 months, 9.62% of UPI payments were declined for business reasons and 0.29% for technical ones at the payer's bank (UPI Pulse, from NPCI's monthly figures). The provider fails payments at those rates.
+- **Payment states:** every payment starts `PENDING` and ends `SUCCESS` or `FAILED`, read by a signed callback, a status check or a reconciliation run. A success that arrives after a cancel is refunded.
+- **Risk-ranked tests:** each new case is ranked by how often the problem happens x how much it hurts. The top three: a paid order not marked paid, a second attempt while one is pending, and a payment left pending after a lost callback. The ranking, sources and honest limits are in [`docs/upi-failure-lab.md`](docs/upi-failure-lab.md).
+- **Each new test was shown to fail:** I broke the code 18 ways, one at a time (no refund, no signature check, no lock, and so on), and each time the matching test failed.
 
 ## Results
 Recorded runs, Windows 11, Python 3.12, Chromium via Playwright:
 
-- **Clean build:** `86 passed in 13.14s` ([full log](reports/results-clean-build.txt)).
+- **Clean build:** `124 passed in 25.02s` ([full log](reports/results-clean-build.txt)).
 - **Defect detection:** every seeded defect is caught by at least one test, and the clean build has zero failures ([matrix](reports/defect-matrix.md)).
 
 | Defect | What is wrong | Caught by |
@@ -53,7 +63,7 @@ Recorded runs, Windows 11, Python 3.12, Chromium via Playwright:
 | [BUG-001](docs/bugs/BUG-001.md) | Quantity 11 accepted (limit 10) | 1 test (boundary value 11) |
 | [BUG-002](docs/bugs/BUG-002.md) | SAVE10 rejected at exactly Rs 500.00 | 3 tests |
 | [BUG-003](docs/bugs/BUG-003.md) | Free shipping lost after a discount | 1 test |
-| [BUG-004](docs/bugs/BUG-004.md) | Cancel does not return stock | 5 tests across API, SQL and browser |
+| [BUG-004](docs/bugs/BUG-004.md) | Cancel does not return stock | 6 tests across API, SQL and browser |
 | [BUG-005](docs/bugs/BUG-005.md) | Shipped order can be cancelled | 2 tests (API, browser) |
 | [BUG-006](docs/bugs/BUG-006.md) | `user@nodot` accepted as e-mail | 1 test (one equivalence partition) |
 | [BUG-007](docs/bugs/BUG-007.md) | Discount truncated, not rounded half up (1 paisa) | 1 test |
@@ -68,18 +78,20 @@ GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) installs dependencies and 
 
 ## Limitations
 - **The defects and tests share an author.** Detection rates show the suite's sensitivity to these fault types, not how it would fare against defects I did not anticipate.
-- Not covered: performance and load, security testing, accessibility auditing, cross-browser and mobile, concurrent orders (the app serialises writes with a lock, so a race is not tested), payments.
-- Chromium only. No Selenium and no Postman collection in this project.
+- Not covered: performance and load, security testing beyond callback signatures, accessibility auditing, cross-browser testing, real phones, a real payment gateway.
+- The UPI provider is simulated. Only its codes (NPCI) and its two decline rates (UPI Pulse) are real; how often callbacks repeat or customers double-tap is assumed, not measured.
+- Chromium only, and the phone in TC-UI-008 is emulated in desktop Chromium. No Selenium and no Postman collection in this project.
+- The 8 seeded defects predate the payment lab. The new tests were checked with one-off broken builds instead, recorded in the lab document, not with new seeded defects.
 - The six manual cases in [`docs/test-cases.md`](docs/test-cases.md) are designed but **not executed**; no manual execution results are claimed.
 - The specification is mine, written alongside the code, so it is a clean oracle rather than an ambiguous client document. Real requirements are rarely this tidy.
 - Boundary fixtures (`BND-*` products) exist only to hit thresholds exactly; they would not exist in a real catalogue.
 
 ## Layout
 ```
-app/        main.py (API)  pricing.py (rules)  db.py (SQLite)  defects.py (switches)  static/index.html
-tests/      api/ db/ ui/  conftest.py (starts the real server, resets data per test)
-docs/       requirements  test-plan  test-cases  traceability (generated)  bugs/ (8 reports + evidence)
-scripts/    defect_matrix.py  capture_evidence.py  make_traceability.py  make_bug_reports.py
+app/        main.py (API)  pricing.py (rules)  db.py (SQLite)  defects.py (switches)  upi_provider.py (pretend UPI)  static/index.html
+tests/      api/ db/ ui/ unit/  conftest.py (starts the real server, resets data per test)
+docs/       requirements  test-plan  test-cases  traceability (generated)  upi-failure-lab  bugs/ (8 reports + evidence)
+scripts/    defect_matrix.py  capture_evidence.py  make_traceability.py  make_bug_reports.py  upi_rates.py
 reports/    results-clean-build.txt  defect-matrix.md/json  screenshots/
 ```
 

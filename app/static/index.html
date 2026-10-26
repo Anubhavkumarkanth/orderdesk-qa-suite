@@ -40,6 +40,12 @@
   <div>Shipping: <span data-testid="summary-shipping"></span></div>
   <div><strong>Total: <span data-testid="summary-total"></span></strong></div>
   <div class="row">
+    <label>UPI ID <input id="upi" data-testid="upi-input" type="text" autocomplete="off" placeholder="name@bank"></label>
+    <button data-testid="pay-upi">Pay with UPI</button>
+  </div>
+  <p class="hint">Try success@sandbox, pending@sandbox or a failure code such as z9@sandbox. Any other UPI ID fails as often as real UPI payments do. No money moves.</p>
+  <div role="status">Payment: <span data-testid="payment-status">none</span> <span data-testid="payment-message"></span></div>
+  <div class="row">
     <button data-testid="pay-order">Mark paid</button>
     <button data-testid="cancel-order">Cancel order</button>
   </div>
@@ -97,8 +103,33 @@ $("#place").addEventListener("click", async () => {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ customer_email: $("#email").value.trim(), items, coupon: coupon || null }),
     });
-    render(order); await loadProducts();
+    render(order); showPayment({ status: "none" }); await loadProducts();
   } catch (e) { $("#error").textContent = e.message; }
+});
+const MESSAGES = { PENDING: "Approve the request in your UPI app.", SUCCESS: "Paid.", REFUNDED: "Refunded: the order could no longer use it." };
+function showPayment(p) {
+  t("payment-status").textContent = p.status;
+  t("payment-message").textContent = p.status === "FAILED" ? `${p.reason} (${p.code}).` : MESSAGES[p.status] || "";
+}
+
+let paying = false;
+t("pay-upi").addEventListener("click", async () => {
+  if (paying) return;  // a second tap on a slow connection must not start a second payment (REQ-UI-004)
+  paying = true; t("pay-upi").disabled = true; $("#error").textContent = "";
+  try {
+    let p = await api(`/api/orders/${current.id}/payments`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ upi_id: $("#upi").value.trim() }),
+    });
+    showPayment(p);
+    for (let i = 0; p.status === "PENDING" && i < 40; i++) {  // status check every 1.5 s, for up to a minute
+      await new Promise(r => setTimeout(r, 1500));
+      p = await api(`/api/payments/${p.id}`);
+      showPayment(p);
+    }
+    render(await api(`/api/orders/${current.id}`)); await loadProducts();
+  } catch (e) { $("#error").textContent = e.message; }
+  finally { paying = false; t("pay-upi").disabled = false; }
 });
 t("pay-order").addEventListener("click", () => act("pay"));
 t("cancel-order").addEventListener("click", () => act("cancel"));

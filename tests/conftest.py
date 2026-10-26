@@ -1,4 +1,7 @@
 """Black-box fixtures: the suite starts the real application as a subprocess and talks to it over HTTP."""
+import hashlib
+import hmac
+import json
 import os
 import socket
 import sqlite3
@@ -12,6 +15,7 @@ import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 SCREENSHOTS = ROOT / "reports" / "screenshots"
+UPI_SECRET = "test-only-upi-secret"  # the suite signs provider callbacks with it, as the pretend provider would
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
 
@@ -29,7 +33,7 @@ def db_path(tmp_path_factory) -> Path:
 @pytest.fixture(scope="session")
 def base_url(db_path):
     port = _free_port()
-    env = {**os.environ, "ORDERDESK_DB": str(db_path), "ORDERDESK_TEST_MODE": "1"}
+    env = {**os.environ, "ORDERDESK_DB": str(db_path), "ORDERDESK_TEST_MODE": "1", "ORDERDESK_UPI_SECRET": UPI_SECRET}
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning"],
         cwd=ROOT, env=env,
@@ -67,6 +71,17 @@ class Api:
 
     def stock(self, sku) -> int:
         return next(p["stock"] for p in self.get("/api/products").json() if p["sku"] == sku)
+
+    def pay(self, order_id, upi_id="success@sandbox"):
+        return requests.post(f"{self.base}/api/orders/{order_id}/payments", json={"upi_id": upi_id})  # thread-safe
+
+    def callback(self, provider_txn, status, code=None, secret=UPI_SECRET):
+        """Send the provider's callback, signed the way the pretend provider signs it (HMAC-SHA256 of the body)."""
+        body = json.dumps({"provider_txn": provider_txn, "status": status, "code": code}).encode()
+        headers = {"Content-Type": "application/json"}
+        if secret is not None:
+            headers["X-Upi-Signature"] = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        return requests.post(f"{self.base}/api/payments/callback", data=body, headers=headers)
 
 
 @pytest.fixture()

@@ -11,6 +11,7 @@ Orderdesk is a small order service written for this project, so the specificatio
 | REQ-VAL-002 | An order has 1 to 5 lines. Duplicate SKUs, unknown SKUs and non-integer quantities are 422. A rejected order changes nothing. |
 | REQ-QTY-001 | Quantity per line is an integer from 1 to 10 inclusive. |
 | REQ-STK-001 | Quantity above available stock is 409. Placing an order decrements stock; a rejected order leaves stock unchanged (all-or-nothing). |
+| REQ-STK-002 | When many customers order the last units at the same moment, exactly the available units are sold, everyone else gets 409, and stock never goes below 0. |
 | REQ-PRC-001 | `SAVE10` gives 10% off the subtotal when the subtotal is at least Rs 500.00 (inclusive). |
 | REQ-PRC-002 | `FLAT50` gives Rs 50.00 off when the subtotal is at least Rs 300.00 (inclusive). |
 | REQ-PRC-003 | An unknown, differently-cased or below-minimum coupon is rejected with 422 (never silently ignored). One coupon per order. |
@@ -27,5 +28,20 @@ Orderdesk is a small order service written for this project, so the specificatio
 | REQ-UI-001 | The checkout page shows the catalogue with live stock, places orders, and shows the order summary exactly as the API returns it (subtotal, discount, shipping, total). |
 | REQ-UI-002 | Validation errors from the API are shown to the user; the summary stays hidden. |
 | REQ-UI-003 | The page can mark an order paid and cancel it, and the stock column refreshes after each action. |
+| REQ-UI-004 | The page works on a 360 px phone over a slow (3G) connection: the totals fit without sideways scrolling, a UPI payment shows `PENDING` until it settles, a decline shows its reason, and tapping Pay twice starts only one payment. |
 
 Test fixtures: products `BND-A` (249.99), `BND-B` (250.00), `BND-C` (250.01), `BND-D` (50.00), `BND-E` (250.05) exist only so subtotals can land exactly on the thresholds and rounding edges above.
+
+## UPI payments
+Payments go through a pretend UPI provider (`app/upi_provider.py`); codes, rates and sources are in [`upi-failure-lab.md`](upi-failure-lab.md).
+
+| ID | Requirement |
+|----|-------------|
+| REQ-PAY-001 | `POST /api/orders/{id}/payments` with a UPI ID (`name@handle`) starts a UPI collect request for the order total and returns the payment as `PENDING`. Only a `PLACED` order can be paid this way. A malformed UPI ID is 422. |
+| REQ-PAY-002 | A payment ends `SUCCESS`, or `FAILED` with NPCI's error code and a plain-English reason. `SUCCESS` moves a `PLACED` order to `PAID`; `FAILED` leaves the order `PLACED` with its stock held. A final status never changes, except `SUCCESS` to `REFUNDED`. |
+| REQ-PAY-003 | The provider's callback (`POST /api/payments/callback`) must be signed: `X-Upi-Signature` is the HMAC-SHA256 of the body. A missing or wrong signature is 401, an unknown payment 404, a `FAILED` without a known code (or a `SUCCESS` with one) 422, and none of them changes anything. A repeated callback is answered 200 but applied once, so an order is never charged or marked paid twice. |
+| REQ-PAY-004 | A `SUCCESS` for an order that is no longer `PLACED` (cancelled, or paid another way) is refunded at once and changes nothing else, so a cancelled order never ships. Cancelling an order paid by UPI refunds the payment. |
+| REQ-PAY-005 | `GET /api/payments/{id}` asks the provider for the latest status of a `PENDING` payment. `POST /api/payments/reconcile` does this for every `PENDING` payment and reports how many it checked, settled and left pending, so a lost callback cannot leave a payment pending once the bank has answered. Running it again changes nothing more. |
+| REQ-PAY-006 | Retry rules: a new attempt is 409 while another is `PENDING`, once the order is paid, after 3 attempts, and after a `U16` risk-limit decline. After any other decline the customer may try again. |
+| REQ-PAY-007 | The UPI ID is passed to the provider only; it is never stored or returned. |
+| REQ-PAY-008 | The pretend provider uses NPCI's codes and meanings, and declines payments at UPI Pulse's 12-month payer's-bank rates: business declines 9.62%, technical declines 0.29%. |

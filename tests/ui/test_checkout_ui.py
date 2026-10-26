@@ -13,17 +13,38 @@ def browser():
         b.close()
 
 
-@pytest.fixture()
-def page(browser, base_url, api, request, screenshots):
-    context = browser.new_context(viewport={"width": 900, "height": 900})
+# Puppeteer's "Fast 3G" preset (aligned with Chrome DevTools): 562.5 ms round trip, about 1.44 Mbit/s down, 0.68 up.
+FAST_3G = {"offline": False, "latency": 150 * 3.75, "downloadThroughput": 1.6e6 / 8 * 0.9, "uploadThroughput": 750e3 / 8 * 0.9}
+PHONE_WIDTH = 360
+
+
+def _open(browser, base_url, request, screenshots, phone=False):
+    context = (browser.new_context(viewport={"width": PHONE_WIDTH, "height": 740}, is_mobile=True, has_touch=True) if phone
+               else browser.new_context(viewport={"width": 900, "height": 900}))
     page = context.new_page()
+    if phone:
+        cdp = context.new_cdp_session(page)
+        cdp.send("Network.enable")
+        cdp.send("Network.emulateNetworkConditions", FAST_3G)
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 4})  # a budget phone's CPU
     page.goto(base_url)
-    expect(page.get_by_test_id("product-NB-A5")).to_be_visible()
+    expect(page.get_by_test_id("product-NB-A5")).to_be_visible(timeout=20_000)
     yield page
     rep = getattr(request.node, "rep_call", None)
     if rep is not None and rep.failed:
         page.screenshot(path=str(screenshots / f"FAILED-{request.node.name}.png"), full_page=True)
     context.close()
+
+
+@pytest.fixture()
+def page(browser, base_url, api, request, screenshots):
+    yield from _open(browser, base_url, request, screenshots)
+
+
+@pytest.fixture()
+def phone(browser, base_url, api, request, screenshots):
+    """A 360 px touch phone on a throttled 3G connection with a 4x slower CPU."""
+    yield from _open(browser, base_url, request, screenshots, phone=True)
 
 
 def fill_and_place(page: Page, qty: dict[str, int], email="qa@example.com", coupon=""):
@@ -91,3 +112,38 @@ def test_tc_ui_007_cancel_after_shipping_is_blocked_with_a_message(page, api):
     page.get_by_test_id("cancel-order").click()
     expect(page.get_by_test_id("error-message")).to_contain_text("cannot cancel an order that is SHIPPED")
     expect(page.get_by_test_id("order-status")).not_to_have_text("CANCELLED")
+
+
+def test_tc_ui_008_mobile_checkout_on_3g(phone, api):
+    """TC-UI-008: on a 360 px phone over 3G, the totals fit the screen, UPI shows PENDING then SUCCESS, and a double tap on Pay starts one payment."""
+    fill_and_place(phone, {"NB-A5": 2})
+    expect(phone.get_by_test_id("order-status")).to_have_text("PLACED", timeout=20_000)
+    assert phone.evaluate("document.documentElement.scrollWidth") <= PHONE_WIDTH  # no sideways scrolling
+    total = phone.get_by_test_id("summary-total").bounding_box()
+    assert total["x"] + total["width"] <= PHONE_WIDTH
+    phone.get_by_test_id("upi-input").fill("success@sandbox")
+    pay = phone.get_by_test_id("pay-upi")
+    pay.scroll_into_view_if_needed()
+    box = pay.bounding_box()
+    for _ in range(2):  # an impatient double tap while the first request is still travelling over 3G
+        phone.touchscreen.tap(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    expect(phone.get_by_test_id("payment-status")).to_have_text("PENDING", timeout=20_000)
+    expect(phone.get_by_test_id("payment-status")).to_have_text("SUCCESS", timeout=20_000)
+    expect(phone.get_by_test_id("order-status")).to_have_text("PAID", timeout=20_000)
+    expect(phone.get_by_test_id("error-message")).to_have_text("")
+    oid = int(phone.get_by_test_id("order-id").text_content().lstrip("#"))
+    assert len(api.get(f"/api/orders/{oid}/payments").json()) == 1
+
+
+def test_tc_ui_009_declined_upi_payment_shows_the_reason_and_a_retry_pays(page):
+    """TC-UI-009: a Z9 decline shows its reason and keeps the order PLACED; paying again with another UPI ID marks it PAID."""
+    fill_and_place(page, {"NB-A5": 1})
+    expect(page.get_by_test_id("order-status")).to_have_text("PLACED")
+    page.get_by_test_id("upi-input").fill("z9@sandbox")
+    page.get_by_test_id("pay-upi").click()
+    expect(page.get_by_test_id("payment-status")).to_have_text("FAILED", timeout=10_000)
+    expect(page.get_by_test_id("payment-message")).to_have_text("Not enough money in the account (Z9).")
+    expect(page.get_by_test_id("order-status")).to_have_text("PLACED")
+    page.get_by_test_id("upi-input").fill("success@sandbox")
+    page.get_by_test_id("pay-upi").click()
+    expect(page.get_by_test_id("order-status")).to_have_text("PAID", timeout=10_000)
