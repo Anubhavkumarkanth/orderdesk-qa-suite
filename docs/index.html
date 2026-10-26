@@ -24,13 +24,14 @@ footer{margin-top:40px;border-top:1px solid var(--line);padding-top:20px;color:v
 <h1>Orderdesk QA Suite</h1>
 <p><a href="https://orderdesk-qa-suite-live.onrender.com">Open the live Orderdesk app</a>. It keeps only a masked copy of any e-mail you type, for example a***@g***.com.</p>
 <p>I built a small order service and tested it at the API, database, and browser levels. The project shows how I turn requirements into checks and clear bug reports.</p>
-<div class="stats" aria-label="Project results"><div class="stat"><strong>86</strong>automated test runs</div><div class="stat"><strong>44</strong>test cases</div><div class="stat"><strong>8</strong>deliberately seeded defects detected</div></div>
+<div class="stats" aria-label="Project results"><div class="stat"><strong>124</strong>automated test runs</div><div class="stat"><strong>62</strong>test cases</div><div class="stat"><strong>8</strong>deliberately seeded defects detected</div></div>
 <section class="panel"><h2>What I checked</h2><ul>
 <li>API inputs and boundary values, including quantity limits, coupon thresholds, and invalid order changes.</li>
 <li>Database rules for order totals, stock, and linked records.</li>
-<li>Checkout steps in a real browser using Playwright.</li>
+<li>Checkout steps in a real browser using Playwright, including a phone-sized screen on a slow 3G connection.</li>
+<li>UPI payments through a pretend provider that uses NPCI's error codes and the real decline rates from my <a href="https://anubhavkumarkanth.github.io/upi-pulse/">UPI Pulse</a> tracker: repeated callbacks, refunds after a cancel, pending payments, retry rules, and 500 buyers racing for the last 5 units.</li>
 <li>CI that passes on the clean app and fails when a seeded defect escapes detection.</li>
-</ul><p>The clean run passed all 86 checks. Each seeded defect has a reproducible report with steps, expected and actual results, evidence, and the test that guards it.</p></section>
+</ul><p>The clean run passed all 124 checks. Each seeded defect has a reproducible report with steps, expected and actual results, evidence, and the test that guards it.</p></section>
 <section class="panel"><h2>What the result means</h2>
 <p>I wrote the sample app, requirements, defects, and tests. Catching all eight seeded defects shows that the suite detects those fault types. It does not show that I found bugs in software written by someone else.</p>
 <p>The live app runs the same API and checkout page the tests use. It stores only a masked copy of each e-mail, and orders reset when the free host restarts.</p></section>
@@ -38,6 +39,7 @@ footer{margin-top:40px;border-top:1px solid var(--line);padding-top:20px;color:v
 <a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite">Source code and setup</a>
 <a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/docs/test-plan.md">Test plan</a>
 <a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/docs/traceability.md">Test coverage map</a>
+<a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/docs/upi-failure-lab.md">UPI failure lab and risk ranking</a>
 <a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/blob/main/reports/defect-matrix.md">Defect results</a>
 <a href="https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/actions/workflows/ci.yml">CI checks</a>
 </p></section>

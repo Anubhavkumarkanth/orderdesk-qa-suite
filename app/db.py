@@ -2,6 +2,7 @@
 import os
 import sqlite3
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 SCHEMA = """
@@ -19,6 +20,14 @@ CREATE TABLE order_items (
     sku TEXT NOT NULL REFERENCES products(sku), quantity INTEGER NOT NULL CHECK (quantity > 0),
     unit_price_paise INTEGER NOT NULL
 );
+CREATE TABLE payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL REFERENCES orders(id),
+    provider_txn TEXT NOT NULL UNIQUE, amount_paise INTEGER NOT NULL CHECK (amount_paise > 0),
+    status TEXT NOT NULL CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED')), code TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+-- At most one payment per order can be in progress or paid, so a second charge cannot be recorded (REQ-PAY-006).
+CREATE UNIQUE INDEX one_live_payment_per_order ON payments(order_id) WHERE status IN ('PENDING', 'SUCCESS');
 """
 
 SEED = [
@@ -53,11 +62,26 @@ def connect() -> sqlite3.Connection:
     return _conn
 
 
+@contextmanager
+def transaction():
+    """Hold the lock and run the block as one transaction, rolled back on any error."""
+    with LOCK:
+        con = connect()
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            yield con
+            con.execute("COMMIT")
+        except BaseException:
+            con.execute("ROLLBACK")
+            raise
+
+
 def reset() -> None:
     """Drop and re-seed. Called at start-up and by the test-mode reset endpoint."""
     with LOCK:
         conn = _conn or sqlite3.connect(path(), check_same_thread=False, isolation_level=None)
-        conn.executescript("DROP TABLE IF EXISTS order_items; DROP TABLE IF EXISTS orders; DROP TABLE IF EXISTS products;")
+        conn.executescript("DROP TABLE IF EXISTS payments; DROP TABLE IF EXISTS order_items; DROP TABLE IF EXISTS orders; "
+                           "DROP TABLE IF EXISTS products;")
         conn.executescript(SCHEMA)
         conn.executemany(
             "INSERT INTO products (sku, name, price_paise, stock, initial_stock) VALUES (?, ?, ?, ?, ?)",

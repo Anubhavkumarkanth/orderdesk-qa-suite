@@ -68,3 +68,31 @@ def test_tc_dat_006_item_price_is_a_snapshot_of_the_catalogue_price(db, scenario
 def test_tc_dat_007_foreign_keys_are_consistent(db, scenario):
     """TC-DAT-007: PRAGMA foreign_key_check reports no violations."""
     assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+@pytest.fixture()
+def payment_scenario(api):
+    """UPI payments: paid, declined then paid, repeated callbacks, a late success after cancel, one still pending."""
+    def order():
+        return api.place([("NB-A5", 1)]).json()["id"]
+    paid, retried, late, pending = order(), order(), order(), order()
+    api.get(f"/api/payments/{api.pay(paid).json()['id']}")
+    api.get(f"/api/payments/{api.pay(retried, 'z9@sandbox').json()['id']}")
+    txn = api.pay(retried).json()["provider_txn"]
+    for _ in range(3):
+        api.callback(txn, "SUCCESS")
+    txn = api.pay(late).json()["provider_txn"]
+    api.post(f"/api/orders/{late}/cancel")
+    api.callback(txn, "SUCCESS")
+    api.pay(pending, "pending@sandbox")
+    api.post(f"/api/orders/{paid}/ship")
+
+
+def test_tc_dat_008_payments_never_charge_twice_and_match_their_order(db, payment_scenario):
+    """TC-DAT-008: no order holds two live payments, every SUCCESS is for the order total of a paid order, and no cancelled order keeps a SUCCESS."""
+    assert db.execute("SELECT order_id FROM payments WHERE status IN ('PENDING', 'SUCCESS') "
+                      "GROUP BY order_id HAVING COUNT(*) > 1").fetchall() == []
+    assert db.execute("SELECT p.id FROM payments p JOIN orders o ON o.id = p.order_id WHERE p.status = 'SUCCESS' "
+                      "AND (p.amount_paise != o.total_paise OR o.status NOT IN ('PAID', 'SHIPPED', 'DELIVERED'))").fetchall() == []
+    assert [tuple(r) for r in db.execute("SELECT status, COUNT(*) FROM payments GROUP BY status ORDER BY status")] == [
+        ("FAILED", 1), ("PENDING", 1), ("REFUNDED", 1), ("SUCCESS", 2)]

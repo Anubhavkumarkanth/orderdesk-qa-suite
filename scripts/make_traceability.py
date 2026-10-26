@@ -7,8 +7,12 @@ ROOT = Path(__file__).resolve().parents[1]
 REQ = {  # test-case prefix -> requirement IDs it covers (see docs/requirements.md)
     "ORD": "REQ-ORD-001..003", "VAL": "REQ-VAL-001..002", "QTY": "REQ-QTY-001", "STK": "REQ-STK-001",
     "PRC": "REQ-PRC-001..007", "LIF": "REQ-LIF-001..003", "DAT": "REQ-DAT-001..002", "UI": "REQ-UI-001..003",
+    "PAY": "REQ-PAY-001..007", "UPI": "REQ-PAY-008",
 }
-EXTRA = {"TC-VAL-002": "REQ-DAT-003"}  # test case -> requirement it covers beyond its prefix
+EXTRA = {  # test case -> requirement it covers beyond its prefix
+    "TC-VAL-002": "REQ-DAT-003", "TC-STK-003": "REQ-STK-002", "TC-DAT-008": "REQ-PAY-002..004",
+    "TC-UI-008": "REQ-UI-004, REQ-PAY-006", "TC-UI-009": "REQ-UI-004, REQ-PAY-002",
+}
 rows = []
 for path in sorted((ROOT / "tests").rglob("test_*.py")):
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
