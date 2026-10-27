@@ -27,6 +27,7 @@ def _open(browser, base_url, request, screenshots, phone=False):
         cdp.send("Network.enable")
         cdp.send("Network.emulateNetworkConditions", FAST_3G)
         cdp.send("Emulation.setCPUThrottlingRate", {"rate": 4})  # a budget phone's CPU
+        page.network = cdp  # this session's conditions win over later ones, so TC-UI-011 goes offline through it
     page.goto(base_url)
     expect(page.get_by_test_id("product-NB-A5")).to_be_visible(timeout=20_000)
     yield page
@@ -147,3 +148,46 @@ def test_tc_ui_009_declined_upi_payment_shows_the_reason_and_a_retry_pays(page):
     page.get_by_test_id("upi-input").fill("success@sandbox")
     page.get_by_test_id("pay-upi").click()
     expect(page.get_by_test_id("order-status")).to_have_text("PAID", timeout=10_000)
+
+
+WAITING = "Still waiting for your bank. Don't pay again: this page keeps checking, and you won't be charged twice."
+OFFLINE = "No connection. This page keeps checking the same payment and won't start a new one."
+
+
+def test_tc_ui_010_a_slow_bank_gets_a_clear_message_and_no_second_payment(page, api):
+    """TC-UI-010: when the bank has not answered after a minute, the page says so, keeps checking the same payment and keeps Pay disabled."""
+    page.clock.install()  # fake timers, so a minute of status checks takes a few seconds
+    page.reload()
+    fill_and_place(page, {"NB-A5": 1})
+    expect(page.get_by_test_id("order-status")).to_have_text("PLACED")
+    page.get_by_test_id("upi-input").fill("pending@sandbox")
+    page.get_by_test_id("pay-upi").click()
+    expect(page.get_by_test_id("payment-status")).to_have_text("PENDING")
+    message = page.get_by_test_id("payment-message")
+    for _ in range(150):  # each step fires the next status check once its timer is set; a step with none is harmless
+        page.clock.run_for(1500)
+        page.wait_for_timeout(30)
+        if message.text_content() == WAITING:
+            break
+    expect(message).to_have_text(WAITING)
+    expect(page.get_by_test_id("pay-upi")).to_be_disabled()
+    with page.expect_response("**/api/payments/*"):
+        page.clock.run_for(15_000)  # it keeps checking, every 15 s
+    oid = int(page.get_by_test_id("order-id").text_content().lstrip("#"))
+    assert [p["status"] for p in api.get(f"/api/orders/{oid}/payments").json()] == ["PENDING"]
+
+
+def test_tc_ui_011_phone_offline_during_payment_keeps_the_same_payment(phone, api):
+    """TC-UI-011: a phone that loses its connection while a payment is pending says so, and once back online settles that same payment."""
+    fill_and_place(phone, {"NB-A5": 1})
+    expect(phone.get_by_test_id("order-status")).to_have_text("PLACED", timeout=20_000)
+    phone.get_by_test_id("upi-input").fill("success@sandbox")
+    phone.get_by_test_id("pay-upi").click()
+    expect(phone.get_by_test_id("payment-status")).to_have_text("PENDING", timeout=20_000)
+    phone.network.send("Network.emulateNetworkConditions", {**FAST_3G, "offline": True})  # before the first check
+    expect(phone.get_by_test_id("payment-message")).to_have_text(OFFLINE, timeout=20_000)
+    phone.network.send("Network.emulateNetworkConditions", FAST_3G)
+    expect(phone.get_by_test_id("payment-status")).to_have_text("SUCCESS", timeout=20_000)
+    expect(phone.get_by_test_id("order-status")).to_have_text("PAID", timeout=20_000)
+    oid = int(phone.get_by_test_id("order-id").text_content().lstrip("#"))
+    assert len(api.get(f"/api/orders/{oid}/payments").json()) == 1

@@ -12,8 +12,8 @@ Show that the order service meets `docs/requirements.md` and that the suite woul
 |-------|-----------|---------|----------|
 | API | Black-box functional, negative, equivalence partitioning, boundary value analysis, state-transition testing | pytest + requests against a live server started by the suite | `tests/api/` |
 | Data | SQL invariants on the stored rows after a mixed scenario | pytest + sqlite3 (read-only) | `tests/db/` |
-| UI | End-to-end checks through the browser, with a failure screenshot saved automatically; one run on a 360 px touch screen over throttled 3G | pytest + Playwright (Chromium) | `tests/ui/` |
-| Payments | State-transition testing of payment states, repeated and forged callbacks, concurrency (double taps, 500 buyers for 5 units), retry rules, reconciliation | pytest + requests; the suite plays the provider | `tests/api/test_upi_payments.py`, `tests/api/test_flash_sale.py` |
+| UI | End-to-end checks through the browser, with a failure screenshot saved automatically; runs on a 360 px touch screen over throttled 3G, one of them going offline mid-payment; a bank slower than a minute, using Playwright's fake clock | pytest + Playwright (Chromium) | `tests/ui/` |
+| Payments | State-transition testing of payment states, repeated and forged callbacks, concurrency (double taps, 500 buyers for 5 units), retry rules, reconciliation, late and wrong-amount answers, refunds that fail, the UPI limit | pytest + requests; the suite plays the provider | `tests/api/test_upi_payments.py`, `tests/api/test_flash_sale.py` |
 | Simulator | Checks that the pretend provider's codes match NPCI and its rates match UPI Pulse | pytest, in process | `tests/unit/` |
 | Regression | The whole suite is the regression pack; `scripts/defect_matrix.py` re-runs it per defect | pytest, GitHub Actions | `.github/workflows/ci.yml` |
 
@@ -39,7 +39,7 @@ Defects are written up in `docs/bugs/` with steps, expected vs actual, evidence 
 | Risk | Mitigation |
 |------|------------|
 | The suite and the defects were written by the same person, so detection rates flatter the suite | Stated in the README; the matrix shows what is caught, not what a stranger's bugs would be |
-| UI tests are slower and more fragile than API tests | Only user-visible behaviour is covered in the UI layer (9 tests); rules are tested at API level |
+| UI tests are slower and more fragile than API tests | Only user-visible behaviour is covered in the UI layer (11 tests); rules are tested at API level |
 | Single browser | Chromium only, and the phone is emulated; noted as a gap |
 | The pretend provider behaves more neatly than a real gateway | Its codes come from NPCI and its rates from UPI Pulse; what it simplifies is listed in `docs/upi-failure-lab.md` |
 | A race test can pass by luck of timing | 500 requests over 50 threads; with the order lock removed it failed |

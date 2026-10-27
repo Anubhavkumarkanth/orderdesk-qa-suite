@@ -1,10 +1,10 @@
 # Defect detection matrix
 
-Each row runs the full suite (124 tests) with only that defect switched on.
+Each row runs the full suite (134 tests) with only that defect switched on.
 
 | Defect | Tests failing | Caught by |
 |---|---:|---|
-| none (clean build) | 0 | all 124 tests pass |
+| none (clean build) | 0 | all 134 tests pass |
 | BUG-001 | 1 | `api/test_pricing_boundaries::test_tc_qty_001_quantity_boundaries[11-422]` |
 | BUG-002 | 3 | `api/test_pricing_boundaries::test_tc_prc_001_save10_minimum_subtotal_boundary[items1-201]`<br>`api/test_pricing_boundaries::test_tc_prc_002_save10_at_exact_minimum_gives_free_shipping_and_correct_total`<br>`api/test_pricing_boundaries::test_tc_prc_008_total_identity_holds_for_every_coupon_case` |
 | BUG-003 | 1 | `api/test_pricing_boundaries::test_tc_prc_002_save10_at_exact_minimum_gives_free_shipping_and_correct_total` |

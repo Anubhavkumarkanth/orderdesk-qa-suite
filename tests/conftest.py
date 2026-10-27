@@ -56,6 +56,7 @@ def base_url(db_path):
 class Api:
     def __init__(self, base_url: str):
         self.base, self.http = base_url, requests.Session()
+        self.amounts = {}  # provider_txn -> amount, so callbacks carry it as the provider's would
 
     def get(self, path, **kw):
         return self.http.get(self.base + path, **kw)
@@ -73,11 +74,15 @@ class Api:
         return next(p["stock"] for p in self.get("/api/products").json() if p["sku"] == sku)
 
     def pay(self, order_id, upi_id="success@sandbox"):
-        return requests.post(f"{self.base}/api/orders/{order_id}/payments", json={"upi_id": upi_id})  # thread-safe
+        r = requests.post(f"{self.base}/api/orders/{order_id}/payments", json={"upi_id": upi_id})  # thread-safe
+        if r.status_code == 201:
+            self.amounts[r.json()["provider_txn"]] = r.json()["amount_paise"]
+        return r
 
-    def callback(self, provider_txn, status, code=None, secret=UPI_SECRET):
+    def callback(self, provider_txn, status, code=None, secret=UPI_SECRET, amount_paise="the payment's"):
         """Send the provider's callback, signed the way the pretend provider signs it (HMAC-SHA256 of the body)."""
-        body = json.dumps({"provider_txn": provider_txn, "status": status, "code": code}).encode()
+        amount = self.amounts.get(provider_txn) if amount_paise == "the payment's" else amount_paise
+        body = json.dumps({"provider_txn": provider_txn, "status": status, "code": code, "amount_paise": amount}).encode()
         headers = {"Content-Type": "application/json"}
         if secret is not None:
             headers["X-Upi-Signature"] = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()

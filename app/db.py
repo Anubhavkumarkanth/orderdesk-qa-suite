@@ -23,7 +23,7 @@ CREATE TABLE order_items (
 CREATE TABLE payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL REFERENCES orders(id),
     provider_txn TEXT NOT NULL UNIQUE, amount_paise INTEGER NOT NULL CHECK (amount_paise > 0),
-    status TEXT NOT NULL CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED')), code TEXT,
+    status TEXT NOT NULL CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED', 'REFUND_PENDING')), code TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 -- At most one payment per order can be in progress or paid, so a second charge cannot be recorded (REQ-PAY-006).
@@ -43,6 +43,9 @@ SEED = [
     ("BND-C", "Boundary fixture C", 25_001, 100),
     ("BND-D", "Boundary fixture D", 5_000, 100),
     ("BND-E", "Boundary fixture E", 25_005, 100),
+    # UPI limit fixtures: BND-UPI alone is exactly Rs 1,00,000.00; adding BND-P makes Rs 1,00,000.01.
+    ("BND-UPI", "Boundary fixture UPI", 10_000_000, 5),
+    ("BND-P", "Boundary fixture P", 1, 100),
 ]
 
 LOCK = threading.RLock()

@@ -106,7 +106,12 @@ $("#place").addEventListener("click", async () => {
     render(order); showPayment({ status: "none" }); await loadProducts();
   } catch (e) { $("#error").textContent = e.message; }
 });
-const MESSAGES = { PENDING: "Approve the request in your UPI app.", SUCCESS: "Paid.", REFUNDED: "Refunded: the order could no longer use it." };
+const MESSAGES = {
+  PENDING: "Approve the request in your UPI app.", SUCCESS: "Paid.", REFUNDED: "Refunded: the order could no longer use it.",
+  REFUND_PENDING: "Refund on its way: your bank has not confirmed it yet.",
+  WAITING: "Still waiting for your bank. Don't pay again: this page keeps checking, and you won't be charged twice.",
+  OFFLINE: "No connection. This page keeps checking the same payment and won't start a new one.",
+};
 function showPayment(p) {
   t("payment-status").textContent = p.status;
   t("payment-message").textContent = p.status === "FAILED" ? `${p.reason} (${p.code}).` : MESSAGES[p.status] || "";
@@ -122,10 +127,16 @@ t("pay-upi").addEventListener("click", async () => {
       body: JSON.stringify({ upi_id: $("#upi").value.trim() }),
     });
     showPayment(p);
-    for (let i = 0; p.status === "PENDING" && i < 40; i++) {  // status check every 1.5 s, for up to a minute
-      await new Promise(r => setTimeout(r, 1500));
-      p = await api(`/api/payments/${p.id}`);
-      showPayment(p);
+    // Status check every 1.5 s for a minute, then every 15 s until the bank answers (REQ-UI-005).
+    for (let i = 1; p.status === "PENDING"; i++) {
+      await new Promise(r => setTimeout(r, i <= 40 ? 1500 : 15000));
+      try {
+        p = await api(`/api/payments/${p.id}`);
+        showPayment(p);
+        if (p.status === "PENDING" && i >= 40) t("payment-message").textContent = MESSAGES.WAITING;
+      } catch (e) {  // offline or a dropped request: the same payment is checked again next time
+        t("payment-message").textContent = MESSAGES.OFFLINE;
+      }
     }
     render(await api(`/api/orders/${current.id}`)); await loadProducts();
   } catch (e) { $("#error").textContent = e.message; }
