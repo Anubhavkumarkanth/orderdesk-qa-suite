@@ -89,8 +89,11 @@ function render(order) {
 
 async function act(action) {
   $("#error").textContent = "";
-  try { render(await api(`/api/orders/${current.id}/${action}`, { method: "POST" })); await loadProducts(); }
-  catch (e) { $("#error").textContent = e.message; }
+  try {
+    render(await api(`/api/orders/${current.id}/${action}`, { method: "POST" })); await loadProducts();
+    const payments = await api(`/api/orders/${current.id}/payments`);  // e.g. a refund after a cancel (REQ-UI-003)
+    if (payments.length) showPayment(payments[payments.length - 1]);
+  } catch (e) { $("#error").textContent = e.message; }
 }
 
 $("#place").addEventListener("click", async () => {

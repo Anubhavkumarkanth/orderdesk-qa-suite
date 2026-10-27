@@ -27,7 +27,7 @@ Orderdesk is a small order service written for this project, so the specificatio
 | REQ-DAT-003 | The full `customer_email` is never stored or returned. Orders keep only a masked copy: the first character of the name and of the domain, then `***`, then the last part of the domain (`anubhav@gmail.com` becomes `a***@g***.com`). |
 | REQ-UI-001 | The checkout page shows the catalogue with live stock, places orders, and shows the order summary exactly as the API returns it (subtotal, discount, shipping, total). |
 | REQ-UI-002 | Validation errors from the API are shown to the user; the summary stays hidden. |
-| REQ-UI-003 | The page can mark an order paid and cancel it, and the stock column refreshes after each action. |
+| REQ-UI-003 | The page can mark an order paid and cancel it, and the stock column refreshes after each action. The payment line then shows the order's latest payment, such as a refund after a cancel. |
 | REQ-UI-004 | The page works on a 360 px phone over a slow (3G) connection: the totals fit without sideways scrolling, a UPI payment shows `PENDING` until it settles, a decline shows its reason, and tapping Pay twice starts only one payment. |
 | REQ-UI-005 | While a UPI payment is pending, the page keeps checking it: every 1.5 s for the first minute, then every 15 s. After a minute it says the bank has not answered yet and the customer should not pay again, and Pay stays disabled. If the connection drops, it says so and keeps checking the same payment, never starting a new one. |
 

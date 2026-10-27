@@ -191,3 +191,20 @@ def test_tc_ui_011_phone_offline_during_payment_keeps_the_same_payment(phone, ap
     expect(phone.get_by_test_id("order-status")).to_have_text("PAID", timeout=20_000)
     oid = int(phone.get_by_test_id("order-id").text_content().lstrip("#"))
     assert len(api.get(f"/api/orders/{oid}/payments").json()) == 1
+
+
+@pytest.mark.parametrize("upi_id, status, message", [
+    ("success@sandbox", "REFUNDED", "Refunded: the order could no longer use it."),
+    ("refund-pending@sandbox", "REFUND_PENDING", "Refund on its way: your bank has not confirmed it yet."),
+], ids=["refunded", "refund-pending"])  # short ids: a ":" in the name would break the failure screenshot's file name on Windows
+def test_tc_ui_012_cancelling_a_upi_paid_order_shows_its_refund(page, upi_id, status, message):
+    """TC-UI-012: after cancelling an order paid by UPI, the payment line shows the refund, or that it is still on its way."""
+    fill_and_place(page, {"NB-A5": 1})
+    expect(page.get_by_test_id("order-status")).to_have_text("PLACED")
+    page.get_by_test_id("upi-input").fill(upi_id)
+    page.get_by_test_id("pay-upi").click()
+    expect(page.get_by_test_id("order-status")).to_have_text("PAID", timeout=10_000)
+    page.get_by_test_id("cancel-order").click()
+    expect(page.get_by_test_id("order-status")).to_have_text("CANCELLED")
+    expect(page.get_by_test_id("payment-status")).to_have_text(status)
+    expect(page.get_by_test_id("payment-message")).to_have_text(message)

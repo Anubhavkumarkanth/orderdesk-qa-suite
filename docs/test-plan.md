@@ -39,7 +39,7 @@ Defects are written up in `docs/bugs/` with steps, expected vs actual, evidence 
 | Risk | Mitigation |
 |------|------------|
 | The suite and the defects were written by the same person, so detection rates flatter the suite | Stated in the README; the matrix shows what is caught, not what a stranger's bugs would be |
-| UI tests are slower and more fragile than API tests | Only user-visible behaviour is covered in the UI layer (11 tests); rules are tested at API level |
+| UI tests are slower and more fragile than API tests | Only user-visible behaviour is covered in the UI layer (13 tests); rules are tested at API level |
 | Single browser | Chromium only, and the phone is emulated; noted as a gap |
 | The pretend provider behaves more neatly than a real gateway | Its codes come from NPCI and its rates from UPI Pulse; what it simplifies is listed in `docs/upi-failure-lab.md` |
 | A race test can pass by luck of timing | 500 requests over 50 threads; with the order lock removed it failed |

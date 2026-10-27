@@ -1,7 +1,7 @@
 # Test cases
 
 ## Automated cases
-68 automated test cases (134 test runs once parametrized) are listed with their requirement and test function in [`traceability.md`](traceability.md), which is generated from the code. Case IDs follow `TC-<area>-<number>`: ORD order flow, VAL validation, QTY quantity, STK stock, PRC pricing, LIF lifecycle, DAT data (SQL), UI browser, PAY UPI payments, UPI the pretend provider itself. The payment, race and mobile cases are ranked by risk in [`upi-failure-lab.md`](upi-failure-lab.md).
+69 automated test cases (136 test runs once parametrized) are listed with their requirement and test function in [`traceability.md`](traceability.md), which is generated from the code. Case IDs follow `TC-<area>-<number>`: ORD order flow, VAL validation, QTY quantity, STK stock, PRC pricing, LIF lifecycle, DAT data (SQL), UI browser, PAY UPI payments, UPI the pretend provider itself. The payment, race and mobile cases are ranked by risk in [`upi-failure-lab.md`](upi-failure-lab.md).
 
 Format used for the designed examples below: **ID, priority, precondition, steps, expected result, technique**.
 

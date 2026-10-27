@@ -99,15 +99,16 @@ Ties are broken by impact, then by data-backed frequency before assumed frequenc
 | 15 | TC-UI-009 | The page hides the reason for a decline | 5 | 9.62% business declines (UPI Pulse) | 3 | 15 |
 | 16 | TC-UI-010 | The bank takes over a minute, and the page stops checking with no word to the customer | 3 | assumed | 3 | 9 |
 | 17 | TC-UI-011 | The phone loses its connection, and the page gives up on the payment | 3 | assumed: mobile connections drop | 3 | 9 |
-| 18 | TC-STK-003 | A flash sale oversells the last units | 2 | assumed: only during sales | 4 | 8 |
-| 19 | TC-PAY-014 | A signed success for a different amount marks the order paid | 2 | assumed: a gateway fault | 4 | 8 |
-| 20 | TC-PAY-016 | An order above UPI's limit sends a request that cannot succeed, with no reason given | 2 | assumed: only orders above Rs 1,00,000; none of Orderdesk's own products reach it | 3 | 6 |
-| 21 | TC-PAY-002 | A malformed UPI ID is accepted | 3 | assumed | 2 | 6 |
-| 22 | TC-PAY-007 | A forged callback marks an order paid | 1 | assumed | 5 | 5 |
+| 18 | TC-UI-012 | After a cancel, the page does not show the refund, so the customer thinks the money is kept | 3 | assumed | 3 | 9 |
+| 19 | TC-STK-003 | A flash sale oversells the last units | 2 | assumed: only during sales | 4 | 8 |
+| 20 | TC-PAY-014 | A signed success for a different amount marks the order paid | 2 | assumed: a gateway fault | 4 | 8 |
+| 21 | TC-PAY-016 | An order above UPI's limit sends a request that cannot succeed, with no reason given | 2 | assumed: only orders above Rs 1,00,000; none of Orderdesk's own products reach it | 3 | 6 |
+| 22 | TC-PAY-002 | A malformed UPI ID is accepted | 3 | assumed | 2 | 6 |
+| 23 | TC-PAY-007 | A forged callback marks an order paid | 1 | assumed | 5 | 5 |
 
 TC-UPI-001 and TC-UPI-002 check the pretend provider itself, not the shop, so they are not ranked.
 
-**How the ranking is used:** it set the order in which these tests were written. If CI time ever forces a smaller smoke pack, the top of the list goes in first. Today every test runs in every CI build, and the security and privacy checks (ranks 4 and 22) stay in whatever their rank.
+**How the ranking is used:** it set the order in which these tests were written. If CI time ever forces a smaller smoke pack, the top of the list goes in first. Today every test runs in every CI build, and the security and privacy checks (ranks 4 and 23) stay in whatever their rank.
 
 ## Edge cases added after review
 
@@ -119,7 +120,7 @@ Plan item A4 of UPI Pulse asked an AI model to suggest payment edge cases, for a
 | The page stops checking after a minute | Stopped checking, showed PENDING with no explanation, and enabled Pay again | Keeps checking every 15 s, says the bank has not answered yet and not to pay again, and keeps Pay disabled (REQ-UI-005) | TC-UI-010 |
 | The phone goes offline mid-payment | Showed "Failed to fetch" and stopped checking | Says there is no connection, and checks the same payment again once back online (REQ-UI-005) | TC-UI-011 |
 | A signed callback with the wrong amount | Callbacks carried no amount, so a signed SUCCESS was trusted for the order total | A SUCCESS must carry the payment's amount, or it is 422 and the payment stays PENDING (REQ-PAY-011) | TC-PAY-014 |
-| A refund that is pending or fails | Every refund succeeded at once | A refund counts only once the provider confirms it; until then the payment is REFUND_PENDING, and reconciliation asks again (REQ-PAY-010) | TC-PAY-015 |
+| A refund that is pending or fails | Every refund succeeded at once | A refund counts only once the provider confirms it; until then the payment is REFUND_PENDING, and reconciliation asks again (REQ-PAY-010). The checkout page shows it after a cancel (REQ-UI-003) | TC-PAY-015, TC-UI-012 |
 | An order above the UPI limit for one payment | Sent a collect request for any total | Refuses a total above Rs 1,00,000.00 before any request, and says why (REQ-PAY-012) | TC-PAY-016 |
 
 **The Rs 1,00,000 limit is as reported, not checked against NPCI's own text.** News reports of NPCI's circular of 28 August 2025 cover the limits it raised for named categories, such as capital markets, insurance and travel. They say the limits outside those categories stay as they were, and give Rs 1 lakh for person-to-person payments ([Outlook Money, 8 September 2025](https://www.outlookmoney.com/banking/npci-changes-upi-transaction-limits-for-key-categories-from-september-15-2025-know-the-details); [All India Radio News, 15 September 2025](https://www.newsonair.gov.in/npci-raises-upi-person-to-merchant-transaction-limit-to-%E2%82%B95-lakh)). That the same Rs 1 lakh applies to an ordinary shop like Orderdesk is an assumption from those reports. NPCI's own pages could not be checked on 27 October 2026: its UPI FAQ address returned "Page Not Found", and its circular list shows only titles. The limit is one constant, `UPI_LIMIT_PAISE` in `app/main.py`.
@@ -130,7 +131,7 @@ TC-UI-008 runs the checkout on a 360 px touch screen with Chromium's network thr
 
 ## Can the new tests fail?
 
-Before opening each pull request I broke the code once per check, ran the test meant to catch it, and put the code back. Each of these 28 broken builds made its test fail: the first 18 for the first lab, and the last 10 for the edge cases added after review.
+Before opening each pull request I broke the code once per check, ran the test meant to catch it, and put the code back. Each of these 29 broken builds made its test fail: the first 18 for the first lab, and the last 11 for the edge cases added after review.
 
 | Broken on purpose | Caught by |
 |-------------------|-----------|
@@ -161,6 +162,7 @@ Before opening each pull request I broke the code once per check, ran the test m
 | No message when the bank is slow | TC-UI-010 |
 | Pay is enabled again while the payment is pending | TC-UI-010 |
 | A dropped connection ends the payment checks | TC-UI-011 |
+| The page does not show the refund after a cancel | TC-UI-012 |
 
 The page has two double-tap guards, a flag and a disabled button. Removing only the flag was not caught, because the disabled button still stopped the second tap; removing both was. These broken builds were one-off checks, not seeded defects, so CI does not repeat them.
 
