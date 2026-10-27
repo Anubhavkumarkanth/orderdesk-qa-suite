@@ -131,7 +131,7 @@ TC-UI-008 runs the checkout on a 360 px touch screen with Chromium's network thr
 
 ## Can the new tests fail?
 
-Before opening each pull request I broke the code once per check, ran the test meant to catch it, and put the code back. Each of these 29 broken builds made its test fail: the first 18 for the first lab, and the last 11 for the edge cases added after review.
+Before opening each pull request I broke the code once per check, ran the test meant to catch it, and put the code back. Each of these 34 broken builds made its test fail: the first 18 for the first lab, the next 11 for the edge cases added after review, and the last 5 for the checkout page's error handling.
 
 | Broken on purpose | Caught by |
 |-------------------|-----------|
@@ -163,6 +163,11 @@ Before opening each pull request I broke the code once per check, ran the test m
 | Pay is enabled again while the payment is pending | TC-UI-010 |
 | A dropped connection ends the payment checks | TC-UI-011 |
 | The page does not show the refund after a cancel | TC-UI-012 |
+| The page shows the API's messages as they are | TC-UI-013 |
+| A dropped connection shows the browser's own error | TC-UI-013 |
+| Reads are not retried | TC-UI-015 |
+| A lost reply to Pay is not picked up | TC-UI-014 |
+| No double-click guard on Place order | TC-UI-016 |
 
 The page has two double-tap guards, a flag and a disabled button. Removing only the flag was not caught, because the disabled button still stopped the second tap; removing both was. These broken builds were one-off checks, not seeded defects, so CI does not repeat them.
 

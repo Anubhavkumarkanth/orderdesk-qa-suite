@@ -5,72 +5,212 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Orderdesk</title>
 <style>
-  body { font-family: Segoe UI, Arial, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #1f2937; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
-  input { padding: 6px; font-size: 14px; }
-  input[type=number] { width: 70px; }
-  button { padding: 8px 14px; font-size: 14px; cursor: pointer; }
-  .row { margin: 12px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .error { color: #b91c1c; min-height: 1.4em; }
-  .hint { color: #4b5563; font-size: 13px; margin: 0; }
-  #order-summary { border: 1px solid #d1d5db; border-radius: 8px; padding: 12px 16px; margin-top: 16px; }
+  :root {
+    --bg: #f5f6fa; --card: #ffffff; --ink: #172033; --muted: #5b6475; --line: #e3e6ee;
+    --brand: #4338ca; --brand-ink: #ffffff; --brand-soft: #eef0ff;
+    --ok: #0b6b41; --ok-soft: #e1f5ea; --warn: #8a5100; --warn-soft: #fff3d6;
+    --bad: #b42318; --bad-soft: #fdecea; --info: #3b4a63; --info-soft: #edf0f6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 6px 20px rgba(16, 24, 40, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1220; --card: #161b2b; --ink: #e8ebf3; --muted: #9aa3b5; --line: #2a3145;
+      --brand: #8c86ff; --brand-ink: #0e1220; --brand-soft: #22254a;
+      --ok: #62d39c; --ok-soft: #10301f; --warn: #f2b84b; --warn-soft: #33270c;
+      --bad: #ff8a80; --bad-soft: #3a1714; --info: #b8c2d6; --info-soft: #222a3d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  .topbar { background: var(--card); border-bottom: 1px solid var(--line); }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 4px 16px; min-height: 58px; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-size: 15px; }
+  .tag { color: var(--muted); font-size: 13px; }
+  main.wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 24px; padding-bottom: 40px; }
+  @media (max-width: 860px) { main.wrap { grid-template-columns: minmax(0, 1fr); padding-top: 16px; } }
+  @media (min-width: 861px) { .checkout { position: sticky; top: 16px; } }
+  .card { min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+  h1, h2, h3 { margin: 0 0 4px; line-height: 1.25; letter-spacing: -.01em; }
+  h1 { font-size: 22px; } h2 { font-size: 19px; } h3 { font-size: 16px; }
+  .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  table.products { width: 100%; border-collapse: collapse; }
+  .products th { padding: 0 8px 8px; border-bottom: 1px solid var(--line); text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .products td { padding: 12px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .products tbody tr:last-child td { border-bottom: 0; }
+  .products .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .products .name { font-weight: 600; }
+  .products .fixture .name { color: var(--muted); font-weight: 500; }
+  .pill { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--info-soft); color: var(--info); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+  .low { color: var(--warn); font-weight: 600; }
+  .out { color: var(--bad); font-weight: 600; }
+  .loading td { color: var(--muted); text-align: center; padding: 28px 8px; }
+  input { width: 100%; min-width: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit; }
+  input::placeholder { color: var(--muted); opacity: .8; }
+  .products input[type=number] { width: 68px; padding: 7px 6px; text-align: center; }
+  input:focus-visible, button:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 35%, transparent); outline-offset: 1px; border-color: var(--brand); }
+  label.field { display: block; margin: 0 0 12px; color: var(--muted); font-size: 13px; font-weight: 600; }
+  label.field input { margin-top: 6px; }
+  .optional { font-weight: 400; }
+  button { padding: 10px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--brand); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.primary { width: 100%; border-color: var(--brand); background: var(--brand); color: var(--brand-ink); }
+  button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+  button.danger { color: var(--bad); }
+  .hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+  .error { color: var(--bad); font-size: 14px; }
+  .error:not(:empty) { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--bad-soft); }
+  #order-summary { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
   #order-summary[hidden] { display: none; }
+  .order-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  dl.totals { display: grid; grid-template-columns: auto minmax(0, 1fr); row-gap: 6px; margin: 0 0 16px; }
+  dl.totals dt { color: var(--muted); }
+  dl.totals dd { margin: 0; padding-left: 12px; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  dl.totals .grand { padding-top: 8px; border-top: 1px dashed var(--line); color: var(--ink); font-size: 17px; font-weight: 700; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--info-soft); color: var(--info); font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+  .badge[data-state=PLACED], .badge[data-state=PENDING], .badge[data-state=REFUND_PENDING] { background: var(--warn-soft); color: var(--warn); }
+  .badge[data-state=PAID], .badge[data-state=SUCCESS], .badge[data-state=SHIPPED], .badge[data-state=DELIVERED] { background: var(--ok-soft); color: var(--ok); }
+  .badge[data-state=FAILED], .badge[data-state=CANCELLED] { background: var(--bad-soft); color: var(--bad); }
+  .pay { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .pay-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+  .pay-row { display: flex; gap: 8px; }
+  .pay-row input { flex: 1; }
+  .pay-row button { width: auto; white-space: nowrap; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+  .chip { padding: 3px 10px; border-radius: 999px; font-size: 12px; }
+  .status-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 12px; font-size: 14px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .actions button { flex: 1; }
+  @media (max-width: 560px) {
+    .card { padding: 16px; }
+    .products thead { display: none; }
+    .products tbody tr { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .products tbody tr:last-child { border-bottom: 0; }
+    .products td { padding: 0; border: 0; }
+    .products td.name { grid-column: 1 / -1; }
+    .products td.num { text-align: left; }
+    .products td.stock::before { content: "In stock: "; color: var(--muted); font-weight: 400; }
+  }
 </style>
 </head>
 <body>
-<h1>Orderdesk</h1>
-<table aria-label="Products">
-  <thead><tr><th>Product</th><th>Price</th><th>In stock</th><th>Qty</th></tr></thead>
-  <tbody id="products"></tbody>
-</table>
-<div class="row">
-  <label>Email <input id="email" data-testid="email-input" type="text" autocomplete="off"></label>
-  <label>Coupon <input id="coupon" data-testid="coupon-input" type="text" autocomplete="off"></label>
-  <button id="place" data-testid="place-order">Place order</button>
-</div>
-<p class="hint">Only a masked copy of your email is kept, for example a***@g***.com.</p>
-<div class="error" id="error" data-testid="error-message" role="alert"></div>
+<header class="topbar"><div class="wrap">
+  <div class="logo"><span class="logo-mark" aria-hidden="true">O</span>Orderdesk</div>
+  <div class="tag">Demo shop for testing. No real money moves.</div>
+</div></header>
 
-<section id="order-summary" data-testid="order-summary" hidden>
-  <h2>Order <span data-testid="order-id"></span> <small data-testid="order-status"></small></h2>
-  <div>Email: <span data-testid="summary-email"></span></div>
-  <div>Subtotal: <span data-testid="summary-subtotal"></span></div>
-  <div>Discount: <span data-testid="summary-discount"></span></div>
-  <div>Shipping: <span data-testid="summary-shipping"></span></div>
-  <div><strong>Total: <span data-testid="summary-total"></span></strong></div>
-  <div class="row">
-    <label>UPI ID <input id="upi" data-testid="upi-input" type="text" autocomplete="off" placeholder="name@bank"></label>
-    <button data-testid="pay-upi">Pay with UPI</button>
-  </div>
-  <p class="hint">Try success@sandbox, pending@sandbox or a failure code such as z9@sandbox. Any other UPI ID fails as often as real UPI payments do. No money moves.</p>
-  <div role="status">Payment: <span data-testid="payment-status">none</span> <span data-testid="payment-message"></span></div>
-  <div class="row">
-    <button data-testid="pay-order">Mark paid</button>
-    <button data-testid="cancel-order">Cancel order</button>
-  </div>
-</section>
+<main class="wrap">
+  <section class="card" aria-labelledby="shop-title">
+    <h1 id="shop-title">Shop</h1>
+    <p class="sub">Choose how many of each item you want, then place your order.</p>
+    <table class="products" aria-label="Products">
+      <thead><tr><th>Product</th><th class="num">Price</th><th class="num">In stock</th><th class="num">Qty</th></tr></thead>
+      <tbody id="products"><tr class="loading"><td colspan="4">Loading the shop…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card checkout" aria-labelledby="checkout-title">
+    <h2 id="checkout-title">Checkout</h2>
+    <p class="sub">Only a masked copy of your e-mail is kept, for example a***@g***.com.</p>
+    <label class="field">E-mail
+      <input id="email" data-testid="email-input" type="text" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name@example.com">
+    </label>
+    <label class="field">Coupon <span class="optional">(optional)</span>
+      <input id="coupon" data-testid="coupon-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SAVE10 or FLAT50">
+    </label>
+    <button id="place" class="primary" data-testid="place-order">Place order</button>
+    <div class="error" id="error" data-testid="error-message" role="alert"></div>
+
+    <section id="order-summary" data-testid="order-summary" hidden>
+      <div class="order-head">
+        <h3>Order <span data-testid="order-id"></span></h3>
+        <span class="badge" data-testid="order-status"></span>
+      </div>
+      <dl class="totals">
+        <dt>E-mail</dt><dd data-testid="summary-email"></dd>
+        <dt>Subtotal</dt><dd data-testid="summary-subtotal"></dd>
+        <dt>Discount</dt><dd data-testid="summary-discount"></dd>
+        <dt>Shipping</dt><dd data-testid="summary-shipping"></dd>
+        <dt class="grand">Total</dt><dd class="grand" data-testid="summary-total"></dd>
+      </dl>
+      <div class="pay">
+        <p class="pay-title">Pay with UPI</p>
+        <div class="pay-row">
+          <input id="upi" data-testid="upi-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name@bank" aria-label="UPI ID">
+          <button class="primary" data-testid="pay-upi">Pay with UPI</button>
+        </div>
+        <div class="chips">Test UPI IDs:
+          <button type="button" class="chip" data-upi="success@sandbox">success</button>
+          <button type="button" class="chip" data-upi="pending@sandbox">pending</button>
+          <button type="button" class="chip" data-upi="z9@sandbox">low balance</button>
+          <button type="button" class="chip" data-upi="zm@sandbox">wrong PIN</button>
+          <button type="button" class="chip" data-upi="refund-pending@sandbox">slow refund</button>
+        </div>
+        <p class="hint">Any other UPI ID succeeds or fails as often as real UPI payments do.</p>
+        <div class="status-line" role="status">Payment <span class="badge" data-testid="payment-status" data-state="none">not started</span> <span data-testid="payment-message"></span></div>
+      </div>
+      <div class="actions">
+        <button data-testid="pay-order" title="Record a payment made another way">Mark paid</button>
+        <button class="danger" data-testid="cancel-order">Cancel order</button>
+      </div>
+    </section>
+  </section>
+</main>
 
 <script>
-const inr = (paise) => "Rs " + (paise / 100).toFixed(2);
+const inr = (paise) => "Rs " + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const $ = (sel) => document.querySelector(sel);
 const t = (id) => document.querySelector(`[data-testid="${id}"]`);
-let current = null, uiDefects = [];
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+let current = null, uiDefects = [], products = [];
 
-async function api(path, options) {
-  const res = await fetch(path, options);
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : "Request failed");
-  return body;
+const UNREACHABLE = "Couldn't reach the shop. Check your connection and try again.";
+const BUSY = "The shop is busy right now. Please try again in a moment.";
+const DONE = { pay: "paid", ship: "shipped", deliver: "delivered", cancel: "cancelled" };
+const product = (sku) => products.find(p => p.sku === sku) || { name: sku, stock: 0 };
+// The API's messages are written for developers; shoppers get these instead (REQ-UI-002).
+const FRIENDLY = [
+  [/^invalid customer_email$/, () => "Enter a valid e-mail address, such as name@example.com."],
+  [/^order must have/, () => "Add at least one item to your order."],
+  [/^quantity for \S+ must be 1 to (\d+)$/, m => `You can order 1 to ${m[1]} of each item.`],
+  [/^insufficient stock for (\S+)$/, m => product(m[1]).stock ? `Sorry, only ${product(m[1]).stock} ${product(m[1]).name} left.` : `Sorry, ${product(m[1]).name} is sold out.`],
+  [/^unknown coupon$/, () => "That coupon code isn't valid. Codes are case-sensitive."],
+  [/^coupon minimum not met$/, () => "Your order is below this coupon's minimum spend."],
+  [/^cannot (\w+) an order that is (\w+)$/, m => `This order is ${m[2].toLowerCase()}, so it can't be ${DONE[m[1]] || m[1]} now.`],
+  [/^invalid upi_id$/, () => "Enter a UPI ID such as name@bank."],
+  [/^no more than (\d+) payment attempts/, m => `You've tried to pay ${m[1]} times. Please use another payment method.`],
+];
+const friendly = (detail) => { for (const [re, say] of FRIENDLY) { const m = detail.match(re); if (m) return say(m); } return detail; };
+
+// tries > 1 only for reads, which are safe to repeat; an order or a payment is never sent twice by the page.
+async function api(path, options, tries = 1) {
+  for (let attempt = 1; ; attempt++) {
+    let res;
+    try { res = await fetch(path, options); }
+    catch (e) {
+      if (attempt < tries) { await sleep(1000 * attempt); continue; }
+      throw Object.assign(new Error(UNREACHABLE), { detail: "" });
+    }
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) return body;
+    if (res.status >= 500 && attempt < tries) { await sleep(1000 * attempt); continue; }
+    const detail = typeof body.detail === "string" ? body.detail : "";
+    throw Object.assign(new Error(detail ? friendly(detail) : BUSY), { detail });
+  }
 }
 
+const isFixture = (p) => p.sku.startsWith("BND-");  // boundary-test items, listed after the real products
+
 async function loadProducts() {
-  const products = await api("/api/products");
-  $("#products").innerHTML = products.map(p => `
-    <tr data-testid="product-${p.sku}">
-      <td>${p.name}</td><td>${inr(p.price_paise)}</td>
-      <td data-testid="stock-${p.sku}">${p.stock}</td>
-      <td><input type="number" min="0" value="0" data-testid="qty-${p.sku}" data-sku="${p.sku}"></td>
+  products = await api("/api/products", undefined, 3);
+  $("#products").innerHTML = [...products].sort((a, b) => isFixture(a) - isFixture(b)).map(p => `
+    <tr data-testid="product-${p.sku}"${isFixture(p) ? ' class="fixture"' : ""}>
+      <td class="name">${p.name}${isFixture(p) ? '<span class="pill">test item</span>' : ""}</td>
+      <td class="num">${inr(p.price_paise)}</td>
+      <td class="num stock${p.stock === 0 ? " out" : p.stock <= 5 ? " low" : ""}" data-testid="stock-${p.sku}">${p.stock}</td>
+      <td class="num"><input type="number" min="0" max="10" value="0" aria-label="Quantity of ${p.name}" data-testid="qty-${p.sku}" data-sku="${p.sku}"></td>
     </tr>`).join("");
 }
 
@@ -80,6 +220,7 @@ function render(order) {
   $("#order-summary").hidden = false;
   t("order-id").textContent = "#" + order.id;
   t("order-status").textContent = order.status;
+  t("order-status").dataset.state = order.status;
   t("summary-email").textContent = order.customer_email;
   t("summary-subtotal").textContent = inr(order.subtotal_paise);
   t("summary-discount").textContent = "-" + inr(order.discount_paise);
@@ -91,13 +232,15 @@ async function act(action) {
   $("#error").textContent = "";
   try {
     render(await api(`/api/orders/${current.id}/${action}`, { method: "POST" })); await loadProducts();
-    const payments = await api(`/api/orders/${current.id}/payments`);  // e.g. a refund after a cancel (REQ-UI-003)
+    const payments = await api(`/api/orders/${current.id}/payments`, undefined, 3);  // e.g. a refund after a cancel (REQ-UI-003)
     if (payments.length) showPayment(payments[payments.length - 1]);
   } catch (e) { $("#error").textContent = e.message; }
 }
 
+let placing = false;
 $("#place").addEventListener("click", async () => {
-  $("#error").textContent = "";
+  if (placing) return;  // a double click places one order (REQ-UI-006)
+  placing = true; $("#place").disabled = true; $("#error").textContent = "";
   const items = [...document.querySelectorAll("input[data-sku]")]
     .map(i => ({ sku: i.dataset.sku, quantity: Number(i.value) })).filter(i => i.quantity !== 0);
   const coupon = $("#coupon").value.trim();
@@ -108,7 +251,9 @@ $("#place").addEventListener("click", async () => {
     });
     render(order); showPayment({ status: "none" }); await loadProducts();
   } catch (e) { $("#error").textContent = e.message; }
+  finally { placing = false; $("#place").disabled = false; }
 });
+
 const MESSAGES = {
   PENDING: "Approve the request in your UPI app.", SUCCESS: "Paid.", REFUNDED: "Refunded: the order could no longer use it.",
   REFUND_PENDING: "Refund on its way: your bank has not confirmed it yet.",
@@ -116,8 +261,24 @@ const MESSAGES = {
   OFFLINE: "No connection. This page keeps checking the same payment and won't start a new one.",
 };
 function showPayment(p) {
-  t("payment-status").textContent = p.status;
+  t("payment-status").textContent = p.status === "none" ? "not started" : p.status;
+  t("payment-status").dataset.state = p.status;
   t("payment-message").textContent = p.status === "FAILED" ? `${p.reason} (${p.code}).` : MESSAGES[p.status] || "";
+}
+
+async function startPayment() {
+  try {
+    return await api(`/api/orders/${current.id}/payments`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ upi_id: $("#upi").value.trim() }),
+    });
+  } catch (e) {
+    // An earlier tap did reach the shop and only its reply was lost: carry on with that payment (REQ-UI-006).
+    if (!/already in progress/.test(e.detail)) throw e;
+    const pending = (await api(`/api/orders/${current.id}/payments`, undefined, 3)).find(x => x.status === "PENDING");
+    if (!pending) throw e;
+    return pending;
+  }
 }
 
 let paying = false;
@@ -125,14 +286,11 @@ t("pay-upi").addEventListener("click", async () => {
   if (paying) return;  // a second tap on a slow connection must not start a second payment (REQ-UI-004)
   paying = true; t("pay-upi").disabled = true; $("#error").textContent = "";
   try {
-    let p = await api(`/api/orders/${current.id}/payments`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ upi_id: $("#upi").value.trim() }),
-    });
+    let p = await startPayment();
     showPayment(p);
     // Status check every 1.5 s for a minute, then every 15 s until the bank answers (REQ-UI-005).
     for (let i = 1; p.status === "PENDING"; i++) {
-      await new Promise(r => setTimeout(r, i <= 40 ? 1500 : 15000));
+      await sleep(i <= 40 ? 1500 : 15000);
       try {
         p = await api(`/api/payments/${p.id}`);
         showPayment(p);
@@ -141,15 +299,18 @@ t("pay-upi").addEventListener("click", async () => {
         t("payment-message").textContent = MESSAGES.OFFLINE;
       }
     }
-    render(await api(`/api/orders/${current.id}`)); await loadProducts();
+    render(await api(`/api/orders/${current.id}`, undefined, 3)); await loadProducts();
   } catch (e) { $("#error").textContent = e.message; }
   finally { paying = false; t("pay-upi").disabled = false; }
 });
 t("pay-order").addEventListener("click", () => act("pay"));
 t("cancel-order").addEventListener("click", () => act("cancel"));
+document.querySelectorAll(".chip").forEach(chip => chip.addEventListener("click", () => { $("#upi").value = chip.dataset.upi; $("#upi").focus(); }));
 
-(async () => { uiDefects = (await api("/api/config")).ui_defects; await loadProducts(); })();
+(async () => {
+  try { uiDefects = (await api("/api/config", undefined, 3)).ui_defects; await loadProducts(); }
+  catch (e) { $("#products").innerHTML = ""; $("#error").textContent = e.message; }
+})();
 </script>
 </body>
 </html>
-
