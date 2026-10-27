@@ -153,9 +153,9 @@ tests/unit/test_upi_provider.py::test_tc_upi_001_outcomes_follow_the_upi_pulse_d
 tests/unit/test_upi_provider.py::test_tc_upi_002_codes_carry_npci_meanings_and_labels PASSED [100%]
 
 ============================= slowest 5 durations =============================
-5.76s call     tests/ui/test_checkout_ui.py::test_tc_ui_011_phone_offline_during_payment_keeps_the_same_payment
-4.76s call     tests/ui/test_checkout_ui.py::test_tc_ui_008_mobile_checkout_on_3g
-3.87s call     tests/ui/test_checkout_ui.py::test_tc_ui_009_declined_upi_payment_shows_the_reason_and_a_retry_pays
+5.74s call     tests/ui/test_checkout_ui.py::test_tc_ui_011_phone_offline_during_payment_keeps_the_same_payment
+4.72s call     tests/ui/test_checkout_ui.py::test_tc_ui_008_mobile_checkout_on_3g
+3.90s call     tests/ui/test_checkout_ui.py::test_tc_ui_009_declined_upi_payment_shows_the_reason_and_a_retry_pays
+2.50s setup    tests/ui/test_checkout_ui.py::test_tc_ui_008_mobile_checkout_on_3g
 2.42s setup    tests/ui/test_checkout_ui.py::test_tc_ui_011_phone_offline_during_payment_keeps_the_same_payment
-2.37s setup    tests/ui/test_checkout_ui.py::test_tc_ui_008_mobile_checkout_on_3g
-============================ 144 passed in 50.35s =============================
+============================ 144 passed in 50.63s =============================

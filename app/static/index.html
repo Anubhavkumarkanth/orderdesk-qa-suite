@@ -6,8 +6,9 @@
 <title>Orderdesk</title>
 <style>
   :root {
-    --bg: #f5f6fa; --card: #ffffff; --ink: #172033; --muted: #5b6475; --line: #e3e6ee;
-    --brand: #4338ca; --brand-ink: #ffffff; --brand-soft: #eef0ff;
+    --bg: #f1f2fb; --card: #ffffff; --ink: #172033; --muted: #5b6475; --line: #e3e6f0;
+    --brand: #4f46e5; --brand-2: #7c3aed; --brand-ink: #ffffff; --brand-soft: #eef0ff;
+    --head: #f3f1ff; --head-ink: #3730a3; --hero: linear-gradient(120deg, #3730a3 0%, #5b21b6 55%, #1d4ed8 100%);
     --ok: #0b6b41; --ok-soft: #e1f5ea; --warn: #8a5100; --warn-soft: #fff3d6;
     --bad: #b42318; --bad-soft: #fdecea; --info: #3b4a63; --info-soft: #edf0f6;
     --radius: 14px; --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 6px 20px rgba(16, 24, 40, .06);
@@ -15,7 +16,8 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0e1220; --card: #161b2b; --ink: #e8ebf3; --muted: #9aa3b5; --line: #2a3145;
-      --brand: #8c86ff; --brand-ink: #0e1220; --brand-soft: #22254a;
+      --brand: #8c86ff; --brand-2: #b18cff; --brand-ink: #0e1220; --brand-soft: #22254a;
+      --head: #1c2040; --head-ink: #c9c6ff; --hero: linear-gradient(120deg, #241f63 0%, #3b1772 55%, #13306e 100%);
       --ok: #62d39c; --ok-soft: #10301f; --warn: #f2b84b; --warn-soft: #33270c;
       --bad: #ff8a80; --bad-soft: #3a1714; --info: #b8c2d6; --info-soft: #222a3d;
     }
@@ -23,18 +25,23 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
   .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
-  .topbar { background: var(--card); border-bottom: 1px solid var(--line); }
-  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 4px 16px; min-height: 58px; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+  .hero { background: var(--hero); color: #fff; padding: 18px 0 84px; }
+  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
   .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
-  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-size: 15px; }
-  .tag { color: var(--muted); font-size: 13px; }
-  main.wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 24px; padding-bottom: 40px; }
-  @media (max-width: 860px) { main.wrap { grid-template-columns: minmax(0, 1fr); padding-top: 16px; } }
+  .logo-mark { width: 30px; height: 30px; border-radius: 9px; background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); display: grid; place-items: center; font-size: 15px; }
+  .tag { padding: 3px 10px; border-radius: 999px; background: rgba(255, 255, 255, .14); font-size: 12px; font-weight: 600; }
+  .hero h1 { margin: 26px 0 4px; font-size: 28px; }
+  .hero p { margin: 0; max-width: 560px; color: rgba(255, 255, 255, .85); }
+  main.wrap { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: -60px; padding-bottom: 40px; }
+  @media (max-width: 860px) { main.wrap { grid-template-columns: minmax(0, 1fr); } }
   @media (min-width: 861px) { .checkout { position: sticky; top: 16px; } }
-  .card { min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+  .card { min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card-head { padding: 16px 20px; border-bottom: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; background: var(--head); }
+  .card-head h2 { color: var(--head-ink); }
+  .card-body { padding: 16px 20px 20px; }
   h1, h2, h3 { margin: 0 0 4px; line-height: 1.25; letter-spacing: -.01em; }
-  h1 { font-size: 22px; } h2 { font-size: 19px; } h3 { font-size: 16px; }
-  .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  h2 { font-size: 19px; } h3 { font-size: 16px; }
+  .sub { margin: 0; color: var(--muted); font-size: 14px; }
   table.products { width: 100%; border-collapse: collapse; }
   .products th { padding: 0 8px 8px; border-bottom: 1px solid var(--line); text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
   .products td { padding: 12px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -56,7 +63,7 @@
   button { padding: 10px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
   button:hover:not(:disabled) { border-color: var(--brand); }
   button:disabled { opacity: .55; cursor: not-allowed; }
-  button.primary { width: 100%; border-color: var(--brand); background: var(--brand); color: var(--brand-ink); }
+  button.primary { width: 100%; border-color: transparent; background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: var(--brand-ink); box-shadow: 0 4px 12px color-mix(in srgb, var(--brand) 30%, transparent); }
   button.primary:hover:not(:disabled) { filter: brightness(1.1); }
   button.danger { color: var(--bad); }
   .hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
@@ -73,8 +80,8 @@
   .badge[data-state=PLACED], .badge[data-state=PENDING], .badge[data-state=REFUND_PENDING] { background: var(--warn-soft); color: var(--warn); }
   .badge[data-state=PAID], .badge[data-state=SUCCESS], .badge[data-state=SHIPPED], .badge[data-state=DELIVERED] { background: var(--ok-soft); color: var(--ok); }
   .badge[data-state=FAILED], .badge[data-state=CANCELLED] { background: var(--bad-soft); color: var(--bad); }
-  .pay { padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
-  .pay-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+  .pay { padding: 14px; border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--line)); border-radius: 12px; background: var(--head); }
+  .pay-title { margin: 0 0 8px; color: var(--head-ink); font-size: 14px; font-weight: 700; }
   .pay-row { display: flex; gap: 8px; }
   .pay-row input { flex: 1; }
   .pay-row button { width: auto; white-space: nowrap; }
@@ -84,7 +91,8 @@
   .actions { display: flex; gap: 8px; margin-top: 14px; }
   .actions button { flex: 1; }
   @media (max-width: 560px) {
-    .card { padding: 16px; }
+    .card-head, .card-body { padding-left: 16px; padding-right: 16px; }
+    .hero h1 { font-size: 23px; }
     .products thead { display: none; }
     .products tbody tr { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
     .products tbody tr:last-child { border-bottom: 0; }
@@ -96,24 +104,35 @@
 </style>
 </head>
 <body>
-<header class="topbar"><div class="wrap">
-  <div class="logo"><span class="logo-mark" aria-hidden="true">O</span>Orderdesk</div>
-  <div class="tag">Demo shop for testing. No real money moves.</div>
+<header class="hero"><div class="wrap">
+  <div class="brand-row">
+    <div class="logo"><span class="logo-mark" aria-hidden="true">O</span>Orderdesk</div>
+    <div class="tag">Demo shop: no real money moves</div>
+  </div>
+  <h1>Shop, check out and pay with UPI</h1>
+  <p>A small shop built for testing orders, coupons and UPI payments, including the ways they fail.</p>
 </div></header>
 
 <main class="wrap">
   <section class="card" aria-labelledby="shop-title">
-    <h1 id="shop-title">Shop</h1>
-    <p class="sub">Choose how many of each item you want, then place your order.</p>
+    <div class="card-head">
+      <h2 id="shop-title">Products</h2>
+      <p class="sub">Choose how many of each item you want, then place your order.</p>
+    </div>
+    <div class="card-body">
     <table class="products" aria-label="Products">
       <thead><tr><th>Product</th><th class="num">Price</th><th class="num">In stock</th><th class="num">Qty</th></tr></thead>
       <tbody id="products"><tr class="loading"><td colspan="4">Loading the shop…</td></tr></tbody>
     </table>
+    </div>
   </section>
 
   <section class="card checkout" aria-labelledby="checkout-title">
-    <h2 id="checkout-title">Checkout</h2>
-    <p class="sub">Only a masked copy of your e-mail is kept, for example a***@g***.com.</p>
+    <div class="card-head">
+      <h2 id="checkout-title">Checkout</h2>
+      <p class="sub">Only a masked copy of your e-mail is kept, for example a***@g***.com.</p>
+    </div>
+    <div class="card-body">
     <label class="field">E-mail
       <input id="email" data-testid="email-input" type="text" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name@example.com">
     </label>
@@ -156,6 +175,7 @@
         <button class="danger" data-testid="cancel-order">Cancel order</button>
       </div>
     </section>
+    </div>
   </section>
 </main>
 

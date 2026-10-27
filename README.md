@@ -56,7 +56,7 @@ The lab adds UPI payment to the checkout through a pretend provider (`app/upi_pr
 ## Results
 Recorded runs, Windows 11, Python 3.12, Chromium via Playwright:
 
-- **Clean build:** `144 passed in 50.35s` ([full log](reports/results-clean-build.txt)).
+- **Clean build:** `144 passed in 50.63s` ([full log](reports/results-clean-build.txt)).
 - **Defect detection:** every seeded defect is caught by at least one test, and the clean build has zero failures ([matrix](reports/defect-matrix.md)).
 
 | Defect | What is wrong | Caught by |
