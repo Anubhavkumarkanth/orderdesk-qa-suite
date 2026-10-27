@@ -9,6 +9,7 @@ import pytest
 pytestmark = pytest.mark.api
 
 CODES = ["ZM", "Z9", "U16", "U69", "U30", "U67"]
+NO_REFUNDS = {"refunds_retried": 0, "refunds_still_pending": 0}
 
 
 def _order(api, qty=2):
@@ -126,7 +127,7 @@ def test_tc_pay_010_reconciliation_settles_pending_payments(api):
     for upi_id in ("success@sandbox", "z9@sandbox", "u67@sandbox", "pending@sandbox"):
         oid = _order(api, qty=1)["id"]
         ids[upi_id] = (oid, api.pay(oid, upi_id).json())
-    assert api.post("/api/payments/reconcile").json() == {"checked": 4, "settled": 3, "still_pending": 1}
+    assert api.post("/api/payments/reconcile").json() == {"checked": 4, "settled": 3, "still_pending": 1, **NO_REFUNDS}
     state = {u: (api.get(f"/api/orders/{o}").json()["status"], api.get(f"/api/orders/{o}/payments").json()[0]) for u, (o, _) in ids.items()}
     assert {u: (s, p["status"], p["code"]) for u, (s, p) in state.items()} == {
         "success@sandbox": ("PAID", "SUCCESS", None),
@@ -134,7 +135,7 @@ def test_tc_pay_010_reconciliation_settles_pending_payments(api):
         "u67@sandbox": ("PLACED", "FAILED", "U67"),
         "pending@sandbox": ("PLACED", "PENDING", None),
     }
-    assert api.post("/api/payments/reconcile").json() == {"checked": 1, "settled": 0, "still_pending": 1}
+    assert api.post("/api/payments/reconcile").json() == {"checked": 1, "settled": 0, "still_pending": 1, **NO_REFUNDS}
     oid, p = ids["pending@sandbox"]
     assert api.callback(p["provider_txn"], "SUCCESS").json()["status"] == "SUCCESS"  # the bank answers at last
     assert api.get(f"/api/orders/{oid}").json()["status"] == "PAID"
@@ -171,3 +172,61 @@ def test_tc_pay_012_retry_is_refused_when_it_could_charge_twice_or_cannot_succee
         _fail(api, oid, "U16")
     r = api.pay(oid)
     assert r.status_code == 409 and message in r.json()["detail"]
+
+
+# Edge cases suggested by AI and kept after review (docs/upi-failure-lab.md, "Edge cases added after review").
+
+@pytest.mark.parametrize("retried", [False, True])
+def test_tc_pay_013_success_after_a_failure_is_refunded(api, db, retried):
+    """TC-PAY-013: a SUCCESS that arrives after the payment was marked FAILED (a debit timeout) is refunded, whether or not the customer paid again meanwhile, and the order is never charged twice."""
+    oid = _order(api)["id"]
+    timed_out = _fail(api, oid, "U67")
+    if retried:
+        api.get(f"/api/payments/{api.pay(oid).json()['id']}")
+    for _ in range(2):  # the late answer, and a repeat of it
+        assert api.callback(timed_out["provider_txn"], "SUCCESS").json()["status"] == "REFUNDED"
+    assert api.get(f"/api/orders/{oid}").json()["status"] == ("PAID" if retried else "PLACED")
+    kept = db.execute("SELECT COUNT(*) FROM payments WHERE order_id = ? AND status = 'SUCCESS'", (oid,)).fetchone()[0]
+    assert kept == (1 if retried else 0)
+
+
+@pytest.mark.parametrize("amount", ["less", "more", "missing"])
+def test_tc_pay_014_success_for_a_different_amount_does_not_pay_the_order(api, amount):
+    """TC-PAY-014: a correctly signed SUCCESS callback for a different amount, or none, is rejected; the payment stays PENDING until the right amount is reported."""
+    oid = _order(api)["id"]
+    p = api.pay(oid, "pending@sandbox").json()
+    wrong = {"less": p["amount_paise"] - 1, "more": p["amount_paise"] + 1, "missing": None}[amount]
+    r = api.callback(p["provider_txn"], "SUCCESS", amount_paise=wrong)
+    assert r.status_code == 422 and "amount" in r.json()["detail"]
+    assert api.get(f"/api/payments/{p['id']}").json()["status"] == "PENDING"
+    assert api.get(f"/api/orders/{oid}").json()["status"] == "PLACED"
+    assert api.callback(p["provider_txn"], "SUCCESS").json()["status"] == "SUCCESS"
+
+
+def test_tc_pay_015_a_refund_counts_only_once_the_provider_confirms_it(api):
+    """TC-PAY-015: a refund that fails or stays pending leaves the payment REFUND_PENDING, never REFUNDED; reconciliation asks again until the provider confirms it."""
+    fails, pending = _order(api)["id"], _order(api)["id"]
+    for oid, upi_id in ((fails, "refund-fails@sandbox"), (pending, "refund-pending@sandbox")):
+        api.get(f"/api/payments/{api.pay(oid, upi_id).json()['id']}")
+        assert api.post(f"/api/orders/{oid}/cancel").json()["status"] == "CANCELLED"
+        assert api.get(f"/api/orders/{oid}/payments").json()[0]["status"] == "REFUND_PENDING"
+    assert api.post("/api/payments/reconcile").json() == {
+        "checked": 0, "settled": 0, "still_pending": 0, "refunds_retried": 2, "refunds_still_pending": 1}
+    assert api.get(f"/api/orders/{fails}/payments").json()[0]["status"] == "REFUNDED"
+    assert api.get(f"/api/orders/{pending}/payments").json()[0]["status"] == "REFUND_PENDING"
+    assert api.post("/api/payments/reconcile").json()["refunds_still_pending"] == 1  # safe to repeat
+
+
+@pytest.mark.parametrize("items, allowed", [
+    ([("BND-UPI", 1)], True),                  # Rs 1,00,000.00: exactly the limit
+    ([("BND-UPI", 1), ("BND-P", 1)], False),   # Rs 1,00,000.01
+])
+def test_tc_pay_016_orders_above_the_upi_limit_are_refused_before_any_request(api, items, allowed):
+    """TC-PAY-016: an order above UPI's Rs 1,00,000 limit for one payment is refused with a reason before any collect request is sent; an order at the limit can pay."""
+    order = api.place(items).json()
+    r = api.pay(order["id"])
+    if allowed:
+        assert order["total_paise"] == 10_000_000 and r.status_code == 201
+    else:
+        assert order["total_paise"] == 10_000_001 and r.status_code == 422 and "1,00,000" in r.json()["detail"]
+        assert api.get(f"/api/orders/{order['id']}/payments").json() == []

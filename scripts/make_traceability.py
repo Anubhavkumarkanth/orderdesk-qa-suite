@@ -12,6 +12,9 @@ REQ = {  # test-case prefix -> requirement IDs it covers (see docs/requirements.
 EXTRA = {  # test case -> requirement it covers beyond its prefix
     "TC-VAL-002": "REQ-DAT-003", "TC-STK-003": "REQ-STK-002", "TC-DAT-008": "REQ-PAY-002..004",
     "TC-UI-008": "REQ-UI-004, REQ-PAY-006", "TC-UI-009": "REQ-UI-004, REQ-PAY-002",
+    "TC-PAY-013": "REQ-PAY-009", "TC-PAY-014": "REQ-PAY-011", "TC-PAY-015": "REQ-PAY-010", "TC-PAY-016": "REQ-PAY-012",
+    "TC-UI-010": "REQ-UI-005, REQ-PAY-006", "TC-UI-011": "REQ-UI-004, REQ-UI-005", "TC-UI-012": "REQ-PAY-004, REQ-PAY-010",
+    "TC-UI-013": "REQ-UI-002", "TC-UI-014": "REQ-UI-006, REQ-PAY-006", "TC-UI-015": "REQ-UI-006", "TC-UI-016": "REQ-UI-006",
 }
 rows = []
 for path in sorted((ROOT / "tests").rglob("test_*.py")):

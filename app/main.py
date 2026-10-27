@@ -20,6 +20,7 @@ EMAIL_LOOSE = re.compile(r"^[^@\s]+@[^@\s]+$")  # used only when BUG-006 is acti
 UPI_ID = re.compile(r"^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9]{1,63}$")
 MAX_QTY, MAX_LINES = 10, 5
 MAX_PAYMENT_ATTEMPTS = 3
+UPI_LIMIT_PAISE = 10_000_000  # Rs 1,00,000 for one ordinary UPI payment, as reported (docs/upi-failure-lab.md)
 STATUSES = ("PLACED", "PAID", "SHIPPED", "DELIVERED", "CANCELLED")
 TRANSITIONS = {  # action -> (allowed current statuses, new status)
     "pay": (("PLACED",), "PAID"),
@@ -57,6 +58,7 @@ class Callback(BaseModel):
     provider_txn: str
     status: Literal["SUCCESS", "FAILED"]
     code: str | None = None
+    amount_paise: int | None = None
 
 
 def _now() -> str:
@@ -86,14 +88,25 @@ def _payment_json(payment_id: int) -> dict:
     return {**dict(row), "reason": upi.FAILURES[row["code"]][3] if row["code"] else None}
 
 
+def _refund(con, pay) -> None:
+    """Return a payment's money. Until the provider confirms it, the payment is REFUND_PENDING and reconciliation asks
+    again (REQ-PAY-010)."""
+    status = "REFUNDED" if upi.refund(pay["provider_txn"]) == "SUCCESS" else "REFUND_PENDING"
+    con.execute("UPDATE payments SET status = ?, updated_at = ? WHERE id = ?", (status, _now(), pay["id"]))
+
+
 def _settle(con, pay, status: str, code: str | None) -> None:
-    """Apply the provider's answer to a PENDING payment once; later answers change nothing (REQ-PAY-002, -003)."""
+    """Apply the provider's answer to a PENDING payment once; later answers change nothing (REQ-PAY-002, -003), except
+    a success after a failure, whose money is returned (REQ-PAY-009)."""
+    if pay["status"] == "FAILED" and status == "SUCCESS":  # e.g. a debit timeout (U67) that went through after all
+        _refund(con, pay)
+        return
     if pay["status"] != "PENDING" or status == "PENDING":
         return
     order_status = con.execute("SELECT status FROM orders WHERE id = ?", (pay["order_id"],)).fetchone()["status"]
     if status == "SUCCESS" and order_status != "PLACED":  # cancelled or paid another way meanwhile (REQ-PAY-004)
-        upi.refund(pay["provider_txn"])
-        status = "REFUNDED"
+        _refund(con, pay)
+        return
     con.execute("UPDATE payments SET status = ?, code = ?, updated_at = ? WHERE id = ?", (status, code, _now(), pay["id"]))
     if status == "SUCCESS":
         con.execute("UPDATE orders SET status = 'PAID' WHERE id = ?", (pay["order_id"],))
@@ -193,6 +206,8 @@ def start_payment(order_id: int, body: NewPayment):
             raise HTTPException(404, "order not found")
         if order["status"] != "PLACED":
             raise HTTPException(409, f"cannot pay an order that is {order['status']}")
+        if order["total_paise"] > UPI_LIMIT_PAISE:  # refused before the provider is asked (REQ-PAY-012)
+            raise HTTPException(422, "UPI allows at most Rs 1,00,000.00 in one payment; use another payment method")
         tries = con.execute("SELECT status, code FROM payments WHERE order_id = ?", (order_id,)).fetchall()
         if any(t["status"] == "PENDING" for t in tries):
             raise HTTPException(409, "a payment for this order is already in progress")
@@ -227,13 +242,19 @@ def check_payment(payment_id: int):
 
 @app.post("/api/payments/reconcile")
 def reconcile():
-    """Status-check every PENDING payment, so a lost callback cannot leave one pending for ever (REQ-PAY-005)."""
+    """Status-check every PENDING payment, so a lost callback cannot leave one pending for ever (REQ-PAY-005), and ask
+    again for every refund not yet confirmed (REQ-PAY-010)."""
     with db.transaction() as con:
         pending = con.execute("SELECT * FROM payments WHERE status = 'PENDING' ORDER BY id").fetchall()
         for pay in pending:
             _settle(con, pay, *upi.status(pay["provider_txn"]))
         left = con.execute("SELECT COUNT(*) FROM payments WHERE status = 'PENDING'").fetchone()[0]
-    return {"checked": len(pending), "settled": len(pending) - left, "still_pending": left}
+        refunds = con.execute("SELECT * FROM payments WHERE status = 'REFUND_PENDING' ORDER BY id").fetchall()
+        for pay in refunds:
+            _refund(con, pay)
+        refunds_left = con.execute("SELECT COUNT(*) FROM payments WHERE status = 'REFUND_PENDING'").fetchone()[0]
+    return {"checked": len(pending), "settled": len(pending) - left, "still_pending": left,
+            "refunds_retried": len(refunds), "refunds_still_pending": refunds_left}
 
 
 @app.post("/api/payments/callback")
@@ -252,6 +273,8 @@ async def payment_callback(request: Request):
         pay = con.execute("SELECT * FROM payments WHERE provider_txn = ?", (cb.provider_txn,)).fetchone()
         if pay is None:
             raise HTTPException(404, "payment not found")
+        if cb.status == "SUCCESS" and cb.amount_paise != pay["amount_paise"]:  # signed, but not this payment's amount
+            raise HTTPException(422, "amount does not match the payment")
         _settle(con, pay, cb.status, cb.code)
     return _payment_json(pay["id"])
 
@@ -278,8 +301,7 @@ def transition(order_id: int, action: str):
         if action == "cancel":  # a cancelled order keeps none of the customer's money (REQ-PAY-004)
             for paid in con.execute("SELECT id, provider_txn FROM payments WHERE order_id = ? AND status = 'SUCCESS'",
                                     (order_id,)).fetchall():
-                upi.refund(paid["provider_txn"])
-                con.execute("UPDATE payments SET status = 'REFUNDED', updated_at = ? WHERE id = ?", (_now(), paid["id"]))
+                _refund(con, paid)
     return _order_json(order_id)
 
 

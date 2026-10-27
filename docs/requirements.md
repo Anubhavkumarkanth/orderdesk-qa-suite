@@ -26,11 +26,13 @@ Orderdesk is a small order service written for this project, so the specificatio
 | REQ-DAT-002 | Stock is conserved: `stock + units in non-cancelled orders = initial stock`; stock is never negative; foreign keys are consistent. |
 | REQ-DAT-003 | The full `customer_email` is never stored or returned. Orders keep only a masked copy: the first character of the name and of the domain, then `***`, then the last part of the domain (`anubhav@gmail.com` becomes `a***@g***.com`). |
 | REQ-UI-001 | The checkout page shows the catalogue with live stock, places orders, and shows the order summary exactly as the API returns it (subtotal, discount, shipping, total). |
-| REQ-UI-002 | Validation errors from the API are shown to the user; the summary stays hidden. |
-| REQ-UI-003 | The page can mark an order paid and cancel it, and the stock column refreshes after each action. |
+| REQ-UI-002 | Errors are shown to the shopper in plain English: the API's messages, which are written for developers, are translated, and a lost connection says so. On an error the summary stays hidden. |
+| REQ-UI-003 | The page can mark an order paid and cancel it, and the stock column refreshes after each action. The payment line then shows the order's latest payment, such as a refund after a cancel. |
 | REQ-UI-004 | The page works on a 360 px phone over a slow (3G) connection: the totals fit without sideways scrolling, a UPI payment shows `PENDING` until it settles, a decline shows its reason, and tapping Pay twice starts only one payment. |
+| REQ-UI-005 | While a UPI payment is pending, the page keeps checking it: every 1.5 s for the first minute, then every 15 s. After a minute it says the bank has not answered yet and the customer should not pay again, and Pay stays disabled. If the connection drops, it says so and keeps checking the same payment, never starting a new one. |
+| REQ-UI-006 | The page never sends an order or a payment twice by itself, but quietly asks again (up to 3 times) when reading the catalogue or an order fails. Place order is disabled while an order is being placed, so a double click places one order. If the shop starts a payment but its reply is lost, the next tap on Pay picks up that payment instead of failing or starting another. |
 
-Test fixtures: products `BND-A` (249.99), `BND-B` (250.00), `BND-C` (250.01), `BND-D` (50.00), `BND-E` (250.05) exist only so subtotals can land exactly on the thresholds and rounding edges above.
+Test fixtures: products `BND-A` (249.99), `BND-B` (250.00), `BND-C` (250.01), `BND-D` (50.00), `BND-E` (250.05) exist only so subtotals can land exactly on the thresholds and rounding edges above. `BND-UPI` (1,00,000.00) and `BND-P` (0.01) do the same for the UPI limit in REQ-PAY-012.
 
 ## UPI payments
 Payments go through a pretend UPI provider (`app/upi_provider.py`); codes, rates and sources are in [`upi-failure-lab.md`](upi-failure-lab.md).
@@ -38,10 +40,14 @@ Payments go through a pretend UPI provider (`app/upi_provider.py`); codes, rates
 | ID | Requirement |
 |----|-------------|
 | REQ-PAY-001 | `POST /api/orders/{id}/payments` with a UPI ID (`name@handle`) starts a UPI collect request for the order total and returns the payment as `PENDING`. Only a `PLACED` order can be paid this way. A malformed UPI ID is 422. |
-| REQ-PAY-002 | A payment ends `SUCCESS`, or `FAILED` with NPCI's error code and a plain-English reason. `SUCCESS` moves a `PLACED` order to `PAID`; `FAILED` leaves the order `PLACED` with its stock held. A final status never changes, except `SUCCESS` to `REFUNDED`. |
+| REQ-PAY-002 | A payment ends `SUCCESS`, or `FAILED` with NPCI's error code and a plain-English reason. `SUCCESS` moves a `PLACED` order to `PAID`; `FAILED` leaves the order `PLACED` with its stock held. A final status never changes, except that money taken is returned: `SUCCESS` (or a late `SUCCESS` after `FAILED`) becomes `REFUND_PENDING` or `REFUNDED` (REQ-PAY-004, -009, -010). |
 | REQ-PAY-003 | The provider's callback (`POST /api/payments/callback`) must be signed: `X-Upi-Signature` is the HMAC-SHA256 of the body. A missing or wrong signature is 401, an unknown payment 404, a `FAILED` without a known code (or a `SUCCESS` with one) 422, and none of them changes anything. A repeated callback is answered 200 but applied once, so an order is never charged or marked paid twice. |
 | REQ-PAY-004 | A `SUCCESS` for an order that is no longer `PLACED` (cancelled, or paid another way) is refunded at once and changes nothing else, so a cancelled order never ships. Cancelling an order paid by UPI refunds the payment. |
 | REQ-PAY-005 | `GET /api/payments/{id}` asks the provider for the latest status of a `PENDING` payment. `POST /api/payments/reconcile` does this for every `PENDING` payment and reports how many it checked, settled and left pending, so a lost callback cannot leave a payment pending once the bank has answered. Running it again changes nothing more. |
 | REQ-PAY-006 | Retry rules: a new attempt is 409 while another is `PENDING`, once the order is paid, after 3 attempts, and after a `U16` risk-limit decline. After any other decline the customer may try again. |
 | REQ-PAY-007 | The UPI ID is passed to the provider only; it is never stored or returned. |
 | REQ-PAY-008 | The pretend provider uses NPCI's codes and meanings, and declines payments at UPI Pulse's 12-month payer's-bank rates: business declines 9.62%, technical declines 0.29%. |
+| REQ-PAY-009 | A `SUCCESS` that arrives after the payment ended `FAILED` (for example a debit timeout, `U67`, that went through after all) is refunded, whether or not the customer has paid again meanwhile. The order is never charged twice. |
+| REQ-PAY-010 | A refund counts only once the provider confirms it. Until then the payment is `REFUND_PENDING`, never `REFUNDED`, and `POST /api/payments/reconcile` asks again, reporting how many refunds it retried and how many are still pending. |
+| REQ-PAY-011 | A signed `SUCCESS` callback must carry the payment's amount (`amount_paise`). A different or missing amount is 422 and the payment stays `PENDING`. |
+| REQ-PAY-012 | An order above Rs 1,00,000.00, UPI's limit for one ordinary payment as reported in the news, cannot start a UPI payment: 422 with the reason, before any request reaches the provider. An order of exactly Rs 1,00,000.00 can pay. |
