@@ -8,7 +8,6 @@ import os
 import socket
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -23,8 +22,8 @@ def server(defect: str):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    tmp = tempfile.mkdtemp()
-    env = {**os.environ, "ORDERDESK_DB": f"{tmp}/o.db", "ORDERDESK_TEST_MODE": "1", "ORDERDESK_DEFECTS": defect}
+    # Both servers use DATABASE_URL and each re-seeds it on its first query, so main() runs one build to the end first.
+    env = {**os.environ, "ORDERDESK_TEST_MODE": "1", "ORDERDESK_DEFECTS": defect}
     proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(port), "--log-level", "warning"], cwd=ROOT, env=env)
     base = f"http://127.0.0.1:{port}"
     for _ in range(100):

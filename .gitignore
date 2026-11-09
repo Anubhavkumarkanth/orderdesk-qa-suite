@@ -2,6 +2,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 *.pyc
-orderdesk.db
+.env
 reports/junit*.xml
 reports/screenshots/FAILED-*.png

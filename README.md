@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/actions/workflows/ci.yml/badge.svg)](https://github.com/Anubhavkumarkanth/orderdesk-qa-suite/actions/workflows/ci.yml)
 
-A small order-processing application (FastAPI + SQLite + one HTML checkout page) and the test suite I wrote for it: **144 automated tests across API, database and browser layers**, a written test plan, requirement-to-test traceability, and reproducible bug reports. It includes a **UPI payment failure lab**: a pretend UPI provider that fails payments with NPCI's error codes at the real decline rates measured by my [UPI Pulse](https://anubhavkumarkanth.github.io/upi-pulse/) tracker.
+A small order-processing application (FastAPI + MySQL + one HTML checkout page) and the test suite I wrote for it: **144 automated tests across API, database and browser layers**, a written test plan, requirement-to-test traceability, and reproducible bug reports. It includes a **UPI payment failure lab**: a pretend UPI provider that fails payments with NPCI's error codes at the real decline rates measured by my [UPI Pulse](https://anubhavkumarkanth.github.io/upi-pulse/) tracker.
 
 ## Live app
 [Open Orderdesk](https://orderdesk-qa-suite-live.onrender.com): the same API and checkout page the tests run against, with real e-mail validation. It keeps only a masked copy of the e-mail you type (`anubhav@gmail.com` is stored as `a***@g***.com`), so no full address is ever stored or shown. After placing an order you can pay with a pretend UPI ID (tap one of the test IDs under the Pay box): `success@sandbox`, `pending@sandbox`, or a failure code such as `z9@sandbox` (not enough money) or `zm@sandbox` (wrong PIN). Pay with `refund-pending@sandbox` and then cancel the order to see a refund the bank has not confirmed yet. Any other UPI ID succeeds or fails as often as real UPI payments do. No money moves, and the UPI ID is never stored. Orders reset when the free host restarts, and the first visit after a quiet spell can take up to a minute.
@@ -17,7 +17,26 @@ The application contains **8 defects that I seeded deliberately** and can switch
 I read nine fresher-level Data Analyst and QA postings in Bengaluru and across India (sources and method in [`docs/market-research.md`](docs/market-research.md)). In the three QA postings, manual testing with test cases and bug reports, Jira, and API testing (Postman or similar) appeared in all three, Selenium or Playwright in two, and SQL in two. So the project leads with test design and defect reports, adds API tests and SQL checks, and uses one browser-automation layer. Playwright was chosen because it installs and runs reliably here; Selenium is more common in those postings, and the concepts (locators, waits, page state) carry over, but I have not used Selenium in this project.
 
 ## Quick start
-Python 3.10+ (developed on 3.12).
+Python 3.10+ (developed on 3.12) and MySQL 8.
+
+**1. Start MySQL.** With Docker, one command starts MySQL 8 with an empty `orderdesk_test` database, and a second adds `orderdesk` for running the app yourself (wait about 20 seconds after the first, while MySQL starts):
+
+```bash
+docker run -d --name orderdesk-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=change-me -e MYSQL_DATABASE=orderdesk_test mysql:8
+docker exec orderdesk-mysql mysql -uroot -pchange-me -e "CREATE DATABASE orderdesk"
+```
+
+Already have MySQL 8 installed? Create the two databases yourself (`CREATE DATABASE orderdesk; CREATE DATABASE orderdesk_test;`) and use your own user and password in the URLs below. If something else already uses port 3306, change the first `3306` in the docker command and in the URLs.
+
+**2. Point the project at it.** `.env.example` explains both variables. There is no data to load: the app creates its tables and seeds the products itself every time it starts, so use databases you are happy to have wiped.
+
+```bash
+export DATABASE_URL="mysql://root:change-me@127.0.0.1:3306/orderdesk"
+export TEST_DATABASE_URL="mysql://root:change-me@127.0.0.1:3306/orderdesk_test"
+# Windows PowerShell: $env:DATABASE_URL="..."; $env:TEST_DATABASE_URL="..."
+```
+
+**3. Install and test.**
 
 ```bash
 git clone https://github.com/Anubhavkumarkanth/orderdesk-qa-suite.git
@@ -29,7 +48,9 @@ python -m pytest -v                                    # clean build: expect 144
 python scripts/defect_matrix.py                        # runs the suite once per seeded defect (about 8 minutes)
 ```
 
-Run the app yourself: `uvicorn app.main:app` then open http://127.0.0.1:8000 (interactive API docs at `/docs`). Switch a defect on with `ORDERDESK_DEFECTS=BUG-004` (or `all`); unset it for the correct build. `ORDERDESK_TEST_MODE=1` enables the reset endpoint the tests use.
+Run the app yourself: `uvicorn app.main:app` (it uses `DATABASE_URL`) then open http://127.0.0.1:8000 (interactive API docs at `/docs`). Switch a defect on with `ORDERDESK_DEFECTS=BUG-004` (or `all`); unset it for the correct build. `ORDERDESK_TEST_MODE=1` enables the reset endpoint the tests use.
+
+The app talks to MySQL through PyMySQL, a driver written in plain Python: it installs with `pip` on any computer, while mysqlclient (the more popular, faster driver) needs a C compiler and MySQL's client libraries.
 
 ## What is tested
 | Layer | Tests | Techniques | Folder |
@@ -89,7 +110,7 @@ GitHub Actions ([`ci.yml`](.github/workflows/ci.yml)) installs dependencies and 
 
 ## Layout
 ```
-app/        main.py (API)  pricing.py (rules)  db.py (SQLite)  defects.py (switches)  upi_provider.py (pretend UPI)  static/index.html
+app/        main.py (API)  pricing.py (rules)  db.py (MySQL)  defects.py (switches)  upi_provider.py (pretend UPI)  static/index.html
 tests/      api/ db/ ui/ unit/  conftest.py (starts the real server, resets data per test)
 docs/       requirements  test-plan  test-cases  traceability (generated)  upi-failure-lab  bugs/ (8 reports + evidence)
 scripts/    defect_matrix.py  capture_evidence.py  make_traceability.py  make_bug_reports.py  upi_rates.py

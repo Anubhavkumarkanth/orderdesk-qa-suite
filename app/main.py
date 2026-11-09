@@ -67,11 +67,11 @@ def _now() -> str:
 
 def _order_json(order_id: int) -> dict:
     con = db.connect()
-    row = con.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    row = con.execute("SELECT * FROM orders WHERE id = %s", (order_id,)).fetchone()
     if row is None:
         raise HTTPException(404, "order not found")
     items = con.execute(
-        "SELECT sku, quantity, unit_price_paise FROM order_items WHERE order_id = ? ORDER BY id", (order_id,)
+        "SELECT sku, quantity, unit_price_paise FROM order_items WHERE order_id = %s ORDER BY id", (order_id,)
     ).fetchall()
     return {
         "id": row["id"], "customer_email": row["customer_email"], "status": row["status"], "coupon": row["coupon"],
@@ -82,7 +82,7 @@ def _order_json(order_id: int) -> dict:
 
 
 def _payment_json(payment_id: int) -> dict:
-    row = db.connect().execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+    row = db.connect().execute("SELECT * FROM payments WHERE id = %s", (payment_id,)).fetchone()
     if row is None:
         raise HTTPException(404, "payment not found")
     return {**dict(row), "reason": upi.FAILURES[row["code"]][3] if row["code"] else None}
@@ -92,7 +92,7 @@ def _refund(con, pay) -> None:
     """Return a payment's money. Until the provider confirms it, the payment is REFUND_PENDING and reconciliation asks
     again (REQ-PAY-010)."""
     status = "REFUNDED" if upi.refund(pay["provider_txn"]) == "SUCCESS" else "REFUND_PENDING"
-    con.execute("UPDATE payments SET status = ?, updated_at = ? WHERE id = ?", (status, _now(), pay["id"]))
+    con.execute("UPDATE payments SET status = %s, updated_at = %s WHERE id = %s", (status, _now(), pay["id"]))
 
 
 def _settle(con, pay, status: str, code: str | None) -> None:
@@ -103,13 +103,13 @@ def _settle(con, pay, status: str, code: str | None) -> None:
         return
     if pay["status"] != "PENDING" or status == "PENDING":
         return
-    order_status = con.execute("SELECT status FROM orders WHERE id = ?", (pay["order_id"],)).fetchone()["status"]
+    order_status = con.execute("SELECT status FROM orders WHERE id = %s", (pay["order_id"],)).fetchone()["status"]
     if status == "SUCCESS" and order_status != "PLACED":  # cancelled or paid another way meanwhile (REQ-PAY-004)
         _refund(con, pay)
         return
-    con.execute("UPDATE payments SET status = ?, code = ?, updated_at = ? WHERE id = ?", (status, code, _now(), pay["id"]))
+    con.execute("UPDATE payments SET status = %s, code = %s, updated_at = %s WHERE id = %s", (status, code, _now(), pay["id"]))
     if status == "SUCCESS":
-        con.execute("UPDATE orders SET status = 'PAID' WHERE id = ?", (pay["order_id"],))
+        con.execute("UPDATE orders SET status = 'PAID' WHERE id = %s", (pay["order_id"],))
 
 
 @app.get("/api/health")
@@ -145,11 +145,11 @@ def create_order(body: NewOrder):
 
     with db.LOCK:
         con = db.connect()
-        con.execute("BEGIN IMMEDIATE")
+        con.execute("BEGIN")
         try:
             subtotal, priced = 0, []
             for line in body.items:
-                prod = con.execute("SELECT price_paise, stock FROM products WHERE sku = ?", (line.sku,)).fetchone()
+                prod = con.execute("SELECT price_paise, stock FROM products WHERE sku = %s", (line.sku,)).fetchone()
                 if prod is None:
                     raise HTTPException(422, f"unknown sku {line.sku}")
                 if line.quantity > prod["stock"]:
@@ -162,15 +162,15 @@ def create_order(body: NewOrder):
                 raise HTTPException(422, str(exc))
             cur = con.execute(
                 "INSERT INTO orders (customer_email, status, coupon, subtotal_paise, discount_paise, shipping_paise, total_paise, created_at) "
-                "VALUES (?, 'PLACED', ?, ?, ?, ?, ?, ?)",
+                "VALUES (%s, 'PLACED', %s, %s, %s, %s, %s, %s)",
                 (mask_email(body.customer_email), body.coupon, totals.subtotal, totals.discount, totals.shipping, totals.total,
                  _now()),
             )
             order_id = cur.lastrowid
             for line, price in priced:
-                con.execute("INSERT INTO order_items (order_id, sku, quantity, unit_price_paise) VALUES (?, ?, ?, ?)",
+                con.execute("INSERT INTO order_items (order_id, sku, quantity, unit_price_paise) VALUES (%s, %s, %s, %s)",
                             (order_id, line.sku, line.quantity, price))
-                con.execute("UPDATE products SET stock = stock - ? WHERE sku = ?", (line.quantity, line.sku))
+                con.execute("UPDATE products SET stock = stock - %s WHERE sku = %s", (line.quantity, line.sku))
             con.execute("COMMIT")
         except BaseException:
             con.execute("ROLLBACK")
@@ -189,7 +189,7 @@ def list_orders(status: str | None = Query(default=None)):
         raise HTTPException(422, "invalid status filter")
     sql, args = "SELECT id FROM orders", ()
     if status:
-        sql, args = sql + " WHERE status = ?", (status,)
+        sql, args = sql + " WHERE status = %s", (status,)
     ids = [r["id"] for r in db.connect().execute(sql + " ORDER BY id", args).fetchall()]
     return [_order_json(i) for i in ids]
 
@@ -201,14 +201,14 @@ def start_payment(order_id: int, body: NewPayment):
     if not UPI_ID.match(body.upi_id):
         raise HTTPException(422, "invalid upi_id")
     with db.transaction() as con:
-        order = con.execute("SELECT status, total_paise FROM orders WHERE id = ?", (order_id,)).fetchone()
+        order = con.execute("SELECT status, total_paise FROM orders WHERE id = %s", (order_id,)).fetchone()
         if order is None:
             raise HTTPException(404, "order not found")
         if order["status"] != "PLACED":
             raise HTTPException(409, f"cannot pay an order that is {order['status']}")
         if order["total_paise"] > UPI_LIMIT_PAISE:  # refused before the provider is asked (REQ-PAY-012)
             raise HTTPException(422, "UPI allows at most Rs 1,00,000.00 in one payment; use another payment method")
-        tries = con.execute("SELECT status, code FROM payments WHERE order_id = ?", (order_id,)).fetchall()
+        tries = con.execute("SELECT status, code FROM payments WHERE order_id = %s", (order_id,)).fetchall()
         if any(t["status"] == "PENDING" for t in tries):
             raise HTTPException(409, "a payment for this order is already in progress")
         if any(t["code"] == "U16" for t in tries):
@@ -218,14 +218,14 @@ def start_payment(order_id: int, body: NewPayment):
         txn = upi.collect(body.upi_id, order["total_paise"])  # the UPI ID goes to the provider only (REQ-PAY-007)
         payment_id = con.execute(
             "INSERT INTO payments (order_id, provider_txn, amount_paise, status, created_at, updated_at) "
-            "VALUES (?, ?, ?, 'PENDING', ?, ?)", (order_id, txn, order["total_paise"], _now(), _now())).lastrowid
+            "VALUES (%s, %s, %s, 'PENDING', %s, %s)", (order_id, txn, order["total_paise"], _now(), _now())).lastrowid
     return _payment_json(payment_id)
 
 
 @app.get("/api/orders/{order_id}/payments")
 def list_payments(order_id: int):
     _order_json(order_id)  # 404 for a missing order
-    ids = db.connect().execute("SELECT id FROM payments WHERE order_id = ? ORDER BY id", (order_id,)).fetchall()
+    ids = db.connect().execute("SELECT id FROM payments WHERE order_id = %s ORDER BY id", (order_id,)).fetchall()
     return [_payment_json(r["id"]) for r in ids]
 
 
@@ -233,7 +233,7 @@ def list_payments(order_id: int):
 def check_payment(payment_id: int):
     """Status check: a PENDING payment asks the provider for its latest answer (REQ-PAY-005)."""
     with db.transaction() as con:
-        pay = con.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+        pay = con.execute("SELECT * FROM payments WHERE id = %s", (payment_id,)).fetchone()
         if pay is None:
             raise HTTPException(404, "payment not found")
         _settle(con, pay, *upi.status(pay["provider_txn"]))
@@ -248,11 +248,11 @@ def reconcile():
         pending = con.execute("SELECT * FROM payments WHERE status = 'PENDING' ORDER BY id").fetchall()
         for pay in pending:
             _settle(con, pay, *upi.status(pay["provider_txn"]))
-        left = con.execute("SELECT COUNT(*) FROM payments WHERE status = 'PENDING'").fetchone()[0]
+        left = con.execute("SELECT COUNT(*) AS n FROM payments WHERE status = 'PENDING'").fetchone()["n"]
         refunds = con.execute("SELECT * FROM payments WHERE status = 'REFUND_PENDING' ORDER BY id").fetchall()
         for pay in refunds:
             _refund(con, pay)
-        refunds_left = con.execute("SELECT COUNT(*) FROM payments WHERE status = 'REFUND_PENDING'").fetchone()[0]
+        refunds_left = con.execute("SELECT COUNT(*) AS n FROM payments WHERE status = 'REFUND_PENDING'").fetchone()["n"]
     return {"checked": len(pending), "settled": len(pending) - left, "still_pending": left,
             "refunds_retried": len(refunds), "refunds_still_pending": refunds_left}
 
@@ -270,7 +270,7 @@ async def payment_callback(request: Request):
     if not (cb.code in upi.FAILURES if cb.status == "FAILED" else cb.code is None):
         raise HTTPException(422, "FAILED needs a known code and SUCCESS none")
     with db.transaction() as con:
-        pay = con.execute("SELECT * FROM payments WHERE provider_txn = ?", (cb.provider_txn,)).fetchone()
+        pay = con.execute("SELECT * FROM payments WHERE provider_txn = %s", (cb.provider_txn,)).fetchone()
         if pay is None:
             raise HTTPException(404, "payment not found")
         if cb.status == "SUCCESS" and cb.amount_paise != pay["amount_paise"]:  # signed, but not this payment's amount
@@ -288,18 +288,18 @@ def transition(order_id: int, action: str):
         allowed = allowed + ("SHIPPED",)
     with db.LOCK:
         con = db.connect()
-        row = con.execute("SELECT status FROM orders WHERE id = ?", (order_id,)).fetchone()
+        row = con.execute("SELECT status FROM orders WHERE id = %s", (order_id,)).fetchone()
         if row is None:
             raise HTTPException(404, "order not found")
         if row["status"] not in allowed:
             raise HTTPException(409, f"cannot {action} an order that is {row['status']}")
-        con.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))
+        con.execute("UPDATE orders SET status = %s WHERE id = %s", (new_status, order_id))
         if action == "cancel" and not defects.on("BUG-004"):
             con.execute(
-                "UPDATE products SET stock = stock + (SELECT quantity FROM order_items WHERE order_id = ? AND sku = products.sku) "
-                "WHERE sku IN (SELECT sku FROM order_items WHERE order_id = ?)", (order_id, order_id))
+                "UPDATE products SET stock = stock + (SELECT quantity FROM order_items WHERE order_id = %s AND sku = products.sku) "
+                "WHERE sku IN (SELECT sku FROM order_items WHERE order_id = %s)", (order_id, order_id))
         if action == "cancel":  # a cancelled order keeps none of the customer's money (REQ-PAY-004)
-            for paid in con.execute("SELECT id, provider_txn FROM payments WHERE order_id = ? AND status = 'SUCCESS'",
+            for paid in con.execute("SELECT id, provider_txn FROM payments WHERE order_id = %s AND status = 'SUCCESS'",
                                     (order_id,)).fetchall():
                 _refund(con, paid)
     return _order_json(order_id)

@@ -62,7 +62,7 @@ def test_tc_val_002_valid_email_is_accepted(api, db, email, masked):
     assert r.status_code == 201
     assert r.json()["customer_email"] == masked
     assert api.get(f"/api/orders/{r.json()['id']}").json()["customer_email"] == masked
-    assert db.execute("SELECT COUNT(*) FROM orders WHERE customer_email = ?", (email,)).fetchone()[0] == 0
+    assert db.execute("SELECT COUNT(*) AS n FROM orders WHERE customer_email = %s", (email,)).fetchone()["n"] == 0
 
 
 def test_tc_val_003_empty_order_is_rejected(api):

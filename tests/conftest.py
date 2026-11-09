@@ -4,7 +4,6 @@ import hmac
 import json
 import os
 import socket
-import sqlite3
 import subprocess
 import sys
 import time
@@ -12,6 +11,8 @@ from pathlib import Path
 
 import pytest
 import requests
+
+from app.db import open_connection
 
 ROOT = Path(__file__).resolve().parents[1]
 SCREENSHOTS = ROOT / "reports" / "screenshots"
@@ -26,14 +27,15 @@ def _free_port() -> int:
 
 
 @pytest.fixture(scope="session")
-def db_path(tmp_path_factory) -> Path:
-    return tmp_path_factory.mktemp("orderdesk") / "orderdesk.db"
+def db_url() -> str:
+    """A throwaway MySQL database: the application drops and re-seeds every table in it."""
+    return os.environ["TEST_DATABASE_URL"]
 
 
 @pytest.fixture(scope="session")
-def base_url(db_path):
+def base_url(db_url):
     port = _free_port()
-    env = {**os.environ, "ORDERDESK_DB": str(db_path), "ORDERDESK_TEST_MODE": "1", "ORDERDESK_UPI_SECRET": UPI_SECRET}
+    env = {**os.environ, "DATABASE_URL": db_url, "ORDERDESK_TEST_MODE": "1", "ORDERDESK_UPI_SECRET": UPI_SECRET}
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port), "--log-level", "warning"],
         cwd=ROOT, env=env,
@@ -97,9 +99,9 @@ def api(base_url):
 
 
 @pytest.fixture()
-def db(db_path, api):
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    con.row_factory = sqlite3.Row
+def db(db_url, api):
+    con = open_connection(db_url)
+    con.execute("SET SESSION TRANSACTION READ ONLY")
     yield con
     con.close()
 
