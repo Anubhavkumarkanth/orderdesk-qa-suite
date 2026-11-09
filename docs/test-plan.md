@@ -4,14 +4,14 @@
 Show that the order service meets `docs/requirements.md` and that the suite would notice the kinds of defects that commonly reach production in order systems: boundary errors, pricing arithmetic, state-machine violations, stock bookkeeping, UI/API disagreement, and UPI payments that are charged twice, stay pending or succeed after a cancel.
 
 ## 2. Scope
-**In scope:** the HTTP API, the persisted SQLite data, and the single-page checkout UI of a self-written application under test; UPI payment handling against a pretend provider (`docs/upi-failure-lab.md`); many buyers ordering the last units at once; the checkout on an emulated phone over throttled 3G.
+**In scope:** the HTTP API, the persisted MySQL data, and the single-page checkout UI of a self-written application under test; UPI payment handling against a pretend provider (`docs/upi-failure-lab.md`); many buyers ordering the last units at once; the checkout on an emulated phone over throttled 3G.
 **Out of scope:** performance and load, security testing beyond callback signatures, accessibility auditing, cross-browser testing and real phones, a real payment gateway (the provider is simulated), deployment. These are real gaps, listed again under Limitations in the README.
 
 ## 3. Approach
 | Layer | Technique | Tooling | Location |
 |-------|-----------|---------|----------|
 | API | Black-box functional, negative, equivalence partitioning, boundary value analysis, state-transition testing | pytest + requests against a live server started by the suite | `tests/api/` |
-| Data | SQL invariants on the stored rows after a mixed scenario | pytest + sqlite3 (read-only) | `tests/db/` |
+| Data | SQL invariants on the stored rows after a mixed scenario | pytest + PyMySQL (read-only session) | `tests/db/` |
 | UI | End-to-end checks through the browser, with a failure screenshot saved automatically; runs on a 360 px touch screen over throttled 3G, one of them going offline mid-payment; a bank slower than a minute, using Playwright's fake clock; plain-English errors, a lost connection or reply, and a double click | pytest + Playwright (Chromium) | `tests/ui/` |
 | Payments | State-transition testing of payment states, repeated and forged callbacks, concurrency (double taps, 500 buyers for 5 units), retry rules, reconciliation, late and wrong-amount answers, refunds that fail, the UPI limit | pytest + requests; the suite plays the provider | `tests/api/test_upi_payments.py`, `tests/api/test_flash_sale.py` |
 | Simulator | Checks that the pretend provider's codes match NPCI and its rates match UPI Pulse | pytest, in process | `tests/unit/` |
@@ -30,7 +30,7 @@ Design choices:
 - Exit for a build: 100% of automated tests pass with no defects switched on; each seeded defect is caught by at least one test (`reports/defect-matrix.md`).
 
 ## 5. Test data and environment
-Python 3.12, SQLite, Chromium via Playwright, Windows 11 for the recorded run and Ubuntu in CI. Seeded products are in `app/db.py`. Sandbox UPI IDs, NPCI codes and UPI Pulse rates are in `docs/upi-failure-lab.md`.
+Python 3.12, MySQL 8 (a `mysql:8` service container in CI), Chromium via Playwright, Windows 11 for the recorded run and Ubuntu in CI. Seeded products are in `app/db.py`. Sandbox UPI IDs, NPCI codes and UPI Pulse rates are in `docs/upi-failure-lab.md`.
 
 ## 6. Defect management
 Defects are written up in `docs/bugs/` with steps, expected vs actual, evidence captured by `scripts/capture_evidence.py`, root cause and the test that now guards the fix. The eight defects in this project were **seeded deliberately** (`app/defects.py`, switched by `ORDERDESK_DEFECTS`); none was found in someone else's software.

@@ -18,4 +18,4 @@ def test_tc_stk_003_flash_sale_500_buyers_for_the_last_5_units(api, db, base_url
     # Selling a unit that is not there would break the stock >= 0 constraint and show up here as a 500.
     assert {c: codes.count(c) for c in set(codes)} == {201: UNITS, 409: BUYERS - UNITS}
     assert api.stock("BAG-01") == 0
-    assert db.execute("SELECT SUM(quantity) FROM order_items WHERE sku = 'BAG-01'").fetchone()[0] == UNITS
+    assert db.execute("SELECT SUM(quantity) AS n FROM order_items WHERE sku = 'BAG-01'").fetchone()["n"] == UNITS

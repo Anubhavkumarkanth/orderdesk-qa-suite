@@ -1,6 +1,6 @@
 """SQL validation of the persisted data after a realistic scenario (REQ-DAT-*).
 
-These checks query the SQLite file directly, so they catch defects that an API response could hide.
+These checks query the MySQL database directly, so they catch defects that an API response could hide.
 """
 import pytest
 
@@ -35,7 +35,7 @@ def test_tc_dat_002_subtotal_equals_sum_of_items(db, scenario):
     """TC-DAT-002: orders.subtotal_paise = sum(quantity x unit_price) of its items."""
     bad = db.execute(
         "SELECT o.id FROM orders o JOIN order_items i ON i.order_id = o.id "
-        "GROUP BY o.id HAVING SUM(i.quantity * i.unit_price_paise) != o.subtotal_paise").fetchall()
+        "GROUP BY o.id, o.subtotal_paise HAVING SUM(i.quantity * i.unit_price_paise) != o.subtotal_paise").fetchall()
     assert bad == []
 
 
@@ -66,8 +66,11 @@ def test_tc_dat_006_item_price_is_a_snapshot_of_the_catalogue_price(db, scenario
 
 
 def test_tc_dat_007_foreign_keys_are_consistent(db, scenario):
-    """TC-DAT-007: PRAGMA foreign_key_check reports no violations."""
-    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    """TC-DAT-007: No item or payment points at a missing order or product."""
+    assert db.execute(
+        "SELECT i.id FROM order_items i LEFT JOIN orders o ON o.id = i.order_id LEFT JOIN products p ON p.sku = i.sku "
+        "WHERE o.id IS NULL OR p.sku IS NULL "
+        "UNION ALL SELECT pa.id FROM payments pa LEFT JOIN orders o ON o.id = pa.order_id WHERE o.id IS NULL").fetchall() == []
 
 
 @pytest.fixture()
@@ -94,5 +97,5 @@ def test_tc_dat_008_payments_never_charge_twice_and_match_their_order(db, paymen
                       "GROUP BY order_id HAVING COUNT(*) > 1").fetchall() == []
     assert db.execute("SELECT p.id FROM payments p JOIN orders o ON o.id = p.order_id WHERE p.status = 'SUCCESS' "
                       "AND (p.amount_paise != o.total_paise OR o.status NOT IN ('PAID', 'SHIPPED', 'DELIVERED'))").fetchall() == []
-    assert [tuple(r) for r in db.execute("SELECT status, COUNT(*) FROM payments GROUP BY status ORDER BY status")] == [
+    assert [tuple(r.values()) for r in db.execute("SELECT status, COUNT(*) FROM payments GROUP BY status ORDER BY status")] == [
         ("FAILED", 1), ("PENDING", 1), ("REFUNDED", 1), ("SUCCESS", 2)]

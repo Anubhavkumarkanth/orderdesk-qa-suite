@@ -22,7 +22,7 @@ def _fail(api, oid, code):
     return api.get(f"/api/payments/{p['id']}").json()
 
 
-def test_tc_pay_001_payment_starts_pending_and_the_upi_id_is_never_stored(api, db_path):
+def test_tc_pay_001_payment_starts_pending_and_the_upi_id_is_never_stored(api, db):
     """TC-PAY-001: a UPI payment starts PENDING for the order total; the UPI ID is neither returned nor stored."""
     order = _order(api)
     r = api.pay(order["id"], "anubhav.k@okaxis")
@@ -30,7 +30,8 @@ def test_tc_pay_001_payment_starts_pending_and_the_upi_id_is_never_stored(api, d
     p = r.json()
     assert (p["order_id"], p["status"], p["amount_paise"], p["code"]) == (order["id"], "PENDING", order["total_paise"], None)
     assert "anubhav.k" not in r.text
-    assert b"anubhav.k" not in db_path.read_bytes()
+    stored = [db.execute(f"SELECT * FROM {t}").fetchall() for t in ("products", "orders", "order_items", "payments")]
+    assert "anubhav.k" not in repr(stored)
     assert api.get(f"/api/orders/{order['id']}").json()["status"] == "PLACED"
 
 
@@ -71,7 +72,7 @@ def test_tc_pay_005_repeated_callbacks_are_applied_once(api, db):
     assert [r.status_code for r in replies] == [200] * 7
     assert {r.json()["status"] for r in replies} == {"SUCCESS"}
     assert api.get(f"/api/orders/{oid}").json()["status"] == "PAID"
-    assert db.execute("SELECT COUNT(*) FROM payments WHERE order_id = ? AND status = 'SUCCESS'", (oid,)).fetchone()[0] == 1
+    assert db.execute("SELECT COUNT(*) AS n FROM payments WHERE order_id = %s AND status = 'SUCCESS'", (oid,)).fetchone()["n"] == 1
 
 
 def test_tc_pay_006_two_pay_requests_at_once_start_one_payment(api):
@@ -186,7 +187,7 @@ def test_tc_pay_013_success_after_a_failure_is_refunded(api, db, retried):
     for _ in range(2):  # the late answer, and a repeat of it
         assert api.callback(timed_out["provider_txn"], "SUCCESS").json()["status"] == "REFUNDED"
     assert api.get(f"/api/orders/{oid}").json()["status"] == ("PAID" if retried else "PLACED")
-    kept = db.execute("SELECT COUNT(*) FROM payments WHERE order_id = ? AND status = 'SUCCESS'", (oid,)).fetchone()[0]
+    kept = db.execute("SELECT COUNT(*) AS n FROM payments WHERE order_id = %s AND status = 'SUCCESS'", (oid,)).fetchone()["n"]
     assert kept == (1 if retried else 0)
 
 
