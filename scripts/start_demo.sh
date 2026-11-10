@@ -5,7 +5,7 @@ trap 'exit 0' TERM INT
 # Small buffers keep MySQL near 200 MB, so it fits beside the app in a 512 MB free instance.
 mysqld --no-defaults --datadir=/srv/mysql --socket=/tmp/mysql.sock --bind-address=127.0.0.1 --mysqlx=OFF \
   --disable-log-bin --performance-schema=OFF --innodb-buffer-pool-size=32M --innodb-log-buffer-size=4M \
-  --table-open-cache=64 --table-definition-cache=200 --max-connections=10 --key-buffer-size=1M &
+  --table-open-cache=64 --table-definition-cache=400 --max-connections=10 --key-buffer-size=1M &
 mysql_pid=$!
 until mysqladmin --no-defaults -h127.0.0.1 -uorderdesk --silent ping; do
   kill -0 "$mysql_pid" 2>/dev/null || exit 1
