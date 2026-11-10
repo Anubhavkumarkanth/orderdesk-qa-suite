@@ -31,3 +31,18 @@ jobs:
         with:
           name: reports
           path: reports/
+
+  demo-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t orderdesk-demo .
+      # Same memory as the free host, so an image that needs more fails here first.
+      - run: docker run -d --name demo --memory=512m --memory-swap=512m -p 8000:10000 orderdesk-demo
+      - name: The demo serves products and takes an order from its own MySQL
+        run: |
+          curl --fail --silent --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:8000/api/products | grep -q NB-A5
+          curl --fail --silent -X POST http://127.0.0.1:8000/api/orders -H 'Content-Type: application/json'             -d '{"customer_email": "qa@example.com", "items": [{"sku": "NB-A5", "quantity": 1}]}' | grep -q PLACED
+          docker stats --no-stream demo
+      - if: failure()
+        run: docker logs demo
