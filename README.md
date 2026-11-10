@@ -50,6 +50,8 @@ python scripts/defect_matrix.py                        # runs the suite once per
 
 Run the app yourself: `uvicorn app.main:app` (it uses `DATABASE_URL`) then open http://127.0.0.1:8000 (interactive API docs at `/docs`). Switch a defect on with `ORDERDESK_DEFECTS=BUG-004` (or `all`); unset it for the correct build. `ORDERDESK_TEST_MODE=1` enables the reset endpoint the tests use.
 
+The live demo runs from the `Dockerfile`: one container holds the app and its own MySQL 8, so the free host needs no outside database. Try the same image with `docker build -t orderdesk-demo . && docker run -p 8000:10000 orderdesk-demo`, then open http://127.0.0.1:8000.
+
 The app talks to MySQL through PyMySQL, a driver written in plain Python: it installs with `pip` on any computer, while mysqlclient (the more popular, faster driver) needs a C compiler and MySQL's client libraries.
 
 ## What is tested
